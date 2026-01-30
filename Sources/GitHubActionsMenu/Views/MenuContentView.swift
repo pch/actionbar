@@ -3,6 +3,7 @@ import SwiftUI
 struct MenuContentView: View {
     @EnvironmentObject var appState: AppState
     @State private var now = Date()
+    @State private var showAbout = false
 
     private let tickTimer = Timer.publish(every: 30, on: .main, in: .common).autoconnect()
 
@@ -53,13 +54,23 @@ struct MenuContentView: View {
             Divider()
 
             // Footer
-            HStack {
+            HStack(spacing: 16) {
                 if let username = appState.username {
                     Text(username)
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
                 Spacer()
+                Button("About") {
+                    showAbout.toggle()
+                }
+                .font(.caption)
+                .buttonStyle(.plain)
+                .foregroundColor(.secondary)
+                .popover(isPresented: $showAbout) {
+                    AboutView()
+                }
+
                 Button("Sign Out") {
                     appState.signOut()
                 }

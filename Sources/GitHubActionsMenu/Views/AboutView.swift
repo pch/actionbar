@@ -1,0 +1,31 @@
+import SwiftUI
+
+struct AboutView: View {
+    private var appVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
+    }
+
+    var body: some View {
+        VStack(spacing: 12) {
+            Text("GitHub Actions Menu")
+                .font(.headline)
+
+            Text("Version \(appVersion)")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            Text("Not affiliated with GitHub.")
+                .font(.caption2)
+                .foregroundColor(.secondary)
+
+            Button("Website") {
+                if let url = URL(string: "https://github.com/nicepkg/github-actions-menu") {
+                    NSWorkspace.shared.open(url)
+                }
+            }
+            .font(.caption)
+            .buttonStyle(.link)
+        }
+        .padding(16)
+    }
+}
