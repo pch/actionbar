@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import SwiftUI
 
@@ -8,9 +9,13 @@ final class AppState: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage: String?
     @Published var username: String?
+    @Published var deviceCode: DeviceCodeResponse?
+    @Published var isLoggingIn = false
 
     private let apiClient = GitHubAPIClient()
+    private let oauthService = OAuthService()
     private var pollTimer: Timer?
+    private var oauthTask: Task<Void, Never>?
     private var previousRunStates: [Int: String] = [:] // run.id -> status/conclusion
     private var hasLoadedOnce = false
 
@@ -31,7 +36,60 @@ final class AppState: ObservableObject {
         }
     }
 
+    func loginWithGitHub() {
+        guard !isLoggingIn else { return }
+        isLoggingIn = true
+        errorMessage = nil
+        deviceCode = nil
+
+        oauthTask = Task {
+            do {
+                let codeResponse = try await oauthService.requestDeviceCode()
+                deviceCode = codeResponse
+
+                if let url = URL(string: codeResponse.verificationUri) {
+                    NSWorkspace.shared.open(url)
+                }
+
+                let token = try await oauthService.pollForToken(
+                    deviceCode: codeResponse.deviceCode,
+                    interval: codeResponse.interval
+                )
+
+                let user = try await apiClient.validateToken(token)
+                guard KeychainService.saveToken(token) else {
+                    throw GitHubAPIError.networkError(
+                        NSError(domain: "KeychainError", code: -1,
+                                userInfo: [NSLocalizedDescriptionKey: "Failed to save token to Keychain"])
+                    )
+                }
+
+                username = user.login
+                isAuthenticated = true
+                deviceCode = nil
+                isLoggingIn = false
+                startPolling()
+            } catch is CancellationError {
+                deviceCode = nil
+                isLoggingIn = false
+            } catch {
+                errorMessage = error.localizedDescription
+                deviceCode = nil
+                isLoggingIn = false
+            }
+        }
+    }
+
+    func cancelLogin() {
+        oauthTask?.cancel()
+        oauthTask = nil
+        deviceCode = nil
+        isLoggingIn = false
+        errorMessage = nil
+    }
+
     func signOut() {
+        cancelLogin()
         stopPolling()
         KeychainService.deleteToken()
         isAuthenticated = false
