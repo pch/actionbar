@@ -8,7 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		24E6B8532F2D684B00884177 /* MyIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 24E6B8522F2D684B00884177 /* MyIcon.icon */; };
-		A10001000000000000000001 /* GitHubActionsMenuApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002000000000000000001 /* GitHubActionsMenuApp.swift */; };
+		A10001000000000000000001 /* ActionBarApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002000000000000000001 /* ActionBarApp.swift */; };
 		A10001000000000000000002 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002000000000000000002 /* AppDelegate.swift */; };
 		A10001000000000000000003 /* WorkflowRun.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002000000000000000003 /* WorkflowRun.swift */; };
 		A10001000000000000000004 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002000000000000000004 /* AppState.swift */; };
@@ -28,7 +28,7 @@
 
 /* Begin PBXFileReference section */
 		24E6B8522F2D684B00884177 /* MyIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = MyIcon.icon; sourceTree = "<group>"; };
-		A10002000000000000000001 /* GitHubActionsMenuApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubActionsMenuApp.swift; sourceTree = "<group>"; };
+		A10002000000000000000001 /* ActionBarApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionBarApp.swift; sourceTree = "<group>"; };
 		A10002000000000000000002 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		A10002000000000000000003 /* WorkflowRun.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkflowRun.swift; sourceTree = "<group>"; };
 		A10002000000000000000004 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
@@ -91,7 +91,7 @@
 		A10005000000000000000004 /* App */ = {
 			isa = PBXGroup;
 			children = (
-				A10002000000000000000001 /* GitHubActionsMenuApp.swift */,
+				A10002000000000000000001 /* ActionBarApp.swift */,
 				A10002000000000000000002 /* AppDelegate.swift */,
 			);
 			path = App;
@@ -212,7 +212,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A10001000000000000000001 /* GitHubActionsMenuApp.swift in Sources */,
+				A10001000000000000000001 /* ActionBarApp.swift in Sources */,
 				A10001000000000000000002 /* AppDelegate.swift in Sources */,
 				A10001000000000000000003 /* WorkflowRun.swift in Sources */,
 				A10001000000000000000004 /* AppState.swift in Sources */,

@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct GitHubActionsMenuApp: App {
+struct ActionBarApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var appState = AppState()
 
