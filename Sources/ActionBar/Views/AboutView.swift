@@ -7,7 +7,7 @@ struct AboutView: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            Text("GitHub Actions Menu")
+            Text("Action Bar for GitHub")
                 .font(.headline)
 
             Text("Version \(appVersion)")

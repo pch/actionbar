@@ -6,7 +6,7 @@ struct ReposResponse: Decodable {
     // Used for array decoding — GitHub returns [Repository]
 }
 
-struct Repository: Decodable, Hashable {
+struct Repository: Decodable, Hashable, Identifiable {
     let id: Int
     let fullName: String
     let htmlUrl: String

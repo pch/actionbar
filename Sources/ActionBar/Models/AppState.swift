@@ -11,6 +11,11 @@ final class AppState: ObservableObject {
     @Published var username: String?
     @Published var deviceCode: DeviceCodeResponse?
     @Published var isLoggingIn = false
+    @Published var selectedRepoNames: Set<String> = []
+    @Published var availableRepos: [Repository] = []
+    @Published var isLoadingRepos = false
+    @Published var showingSettings = false
+    @Published var pollingInterval: TimeInterval = 30
 
     private let apiClient = GitHubAPIClient()
     private let oauthService = OAuthService()
@@ -19,12 +24,21 @@ final class AppState: ObservableObject {
     private var previousRunStates: [Int: String] = [:] // run.id -> status/conclusion
     private var hasLoadedOnce = false
 
+    private static let selectedReposKey = "selectedRepositories"
+    private static let pollingIntervalKey = "pollingInterval"
+
+    var hasRepoConfiguration: Bool {
+        UserDefaults.standard.object(forKey: Self.selectedReposKey) != nil
+    }
+
     var overallStatus: RunStatus {
         guard let newest = runs.first else { return .unknown }
         return RunStatus(from: newest)
     }
 
     func start() {
+        loadSelectedRepos()
+        loadPollingInterval()
         guard let token = KeychainService.loadToken() else { return }
         isAuthenticated = true
         // Fetch username for actor-filtered polling, then start
@@ -98,6 +112,10 @@ final class AppState: ObservableObject {
         previousRunStates = [:]
         hasLoadedOnce = false
         errorMessage = nil
+        selectedRepoNames = []
+        availableRepos = []
+        showingSettings = false
+        UserDefaults.standard.removeObject(forKey: Self.selectedReposKey)
     }
 
     func authenticate(token: String) async throws {
@@ -121,7 +139,7 @@ final class AppState: ObservableObject {
 
     private func startPolling() {
         fetchRunsInitial()
-        pollTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
+        pollTimer = Timer.scheduledTimer(withTimeInterval: pollingInterval, repeats: true) { [weak self] _ in
             guard let self else { return }
             Task { @MainActor in
                 await self.fetchRuns()
@@ -150,7 +168,15 @@ final class AppState: ObservableObject {
         errorMessage = nil
 
         do {
-            let newRuns = try await apiClient.fetchRecentRuns(token: token, actor: username)
+            let usingFallback = !hasRepoConfiguration || selectedRepoNames.isEmpty
+            let repos = usingFallback ? nil : Array(selectedRepoNames)
+            let newRuns = try await apiClient.fetchRecentRuns(token: token, actor: username, repos: repos)
+
+            if usingFallback && !newRuns.isEmpty {
+                let repoNames = Set(newRuns.map(\.repositoryFullName))
+                selectedRepoNames = repoNames
+                saveSelectedRepos()
+            }
 
             // Detect completions for notifications
             if hasLoadedOnce {
@@ -196,5 +222,67 @@ final class AppState: ObservableObject {
 
     private func stateKey(for run: WorkflowRun) -> String {
         "\(run.status ?? "unknown")/\(run.conclusion ?? "none")"
+    }
+
+    // MARK: - Settings Persistence
+
+    private func loadSelectedRepos() {
+        if let saved = UserDefaults.standard.stringArray(forKey: Self.selectedReposKey) {
+            selectedRepoNames = Set(saved)
+        }
+    }
+
+    private func saveSelectedRepos() {
+        UserDefaults.standard.set(Array(selectedRepoNames), forKey: Self.selectedReposKey)
+    }
+
+    private func loadPollingInterval() {
+        let saved = UserDefaults.standard.double(forKey: Self.pollingIntervalKey)
+        pollingInterval = saved > 0 ? saved : 30
+    }
+
+    private func savePollingInterval() {
+        UserDefaults.standard.set(pollingInterval, forKey: Self.pollingIntervalKey)
+    }
+
+    func updatePollingInterval(_ interval: TimeInterval) {
+        pollingInterval = interval
+        savePollingInterval()
+        stopPolling()
+        startPolling()
+    }
+
+    func toggleRepo(_ repoName: String) {
+        if selectedRepoNames.contains(repoName) {
+            selectedRepoNames.remove(repoName)
+        } else {
+            selectedRepoNames.insert(repoName)
+        }
+        saveSelectedRepos()
+    }
+
+    func selectAllRepos(_ repoNames: [String]) {
+        selectedRepoNames = Set(repoNames)
+        saveSelectedRepos()
+    }
+
+    func deselectAllRepos() {
+        selectedRepoNames = []
+        saveSelectedRepos()
+    }
+
+    func fetchAvailableRepos(force: Bool = false) {
+        guard let token = KeychainService.loadToken() else { return }
+        if !force && !availableRepos.isEmpty { return }
+        isLoadingRepos = true
+        Task {
+            do {
+                let repos = try await apiClient.fetchAllRepos(token: token)
+                availableRepos = repos
+            } catch {
+                // Keep whatever we had before
+            }
+            isLoadingRepos = false
+        }
     }
 }

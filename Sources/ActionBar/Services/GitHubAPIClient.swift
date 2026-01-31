@@ -64,14 +64,19 @@ actor GitHubAPIClient {
 
     // MARK: - Fetch Workflow Runs
 
-    func fetchRecentRuns(token: String, actor: String? = nil) async throws -> [WorkflowRun] {
-        let repos = try await fetchRepos(token: token)
+    func fetchRecentRuns(token: String, actor: String? = nil, repos repoNames: [String]? = nil) async throws -> [WorkflowRun] {
+        let repoFullNames: [String]
+        if let repoNames {
+            repoFullNames = repoNames
+        } else {
+            repoFullNames = try await fetchRepos(token: token).map(\.fullName)
+        }
 
         return await withTaskGroup(of: [WorkflowRun].self) { group in
-            for repo in repos {
+            for repoName in repoFullNames {
                 group.addTask {
                     do {
-                        return try await self.fetchRunsForRepo(repo: repo.fullName, token: token, actor: actor)
+                        return try await self.fetchRunsForRepo(repo: repoName, token: token, actor: actor)
                     } catch {
                         // Silently skip repos where we can't fetch runs (e.g. no Actions configured)
                         return []
@@ -96,6 +101,52 @@ actor GitHubAPIClient {
         }
     }
 
+    func fetchAllRepos(token: String) async throws -> [Repository] {
+        var allRepos: [Repository] = []
+        var page = 1
+        let maxRepos = 200
+
+        while allRepos.count < maxRepos {
+            let request = makeRequest(
+                path: "/user/repos",
+                queryItems: [
+                    URLQueryItem(name: "sort", value: "full_name"),
+                    URLQueryItem(name: "per_page", value: "100"),
+                    URLQueryItem(name: "page", value: "\(page)"),
+                ],
+                token: token
+            )
+
+            let (data, response) = try await perform(request)
+
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw GitHubAPIError.invalidResponse(0)
+            }
+
+            if httpResponse.statusCode == 401 {
+                throw GitHubAPIError.invalidToken
+            }
+
+            guard httpResponse.statusCode == 200 else {
+                throw GitHubAPIError.invalidResponse(httpResponse.statusCode)
+            }
+
+            let repos: [Repository]
+            do {
+                repos = try decoder.decode([Repository].self, from: data)
+            } catch {
+                throw GitHubAPIError.decodingError(error)
+            }
+
+            if repos.isEmpty { break }
+            allRepos.append(contentsOf: repos)
+            if repos.count < 100 { break }
+            page += 1
+        }
+
+        return Array(allRepos.prefix(maxRepos))
+    }
+
     // MARK: - Private
 
     private func fetchRepos(token: String) async throws -> [Repository] {
@@ -103,7 +154,7 @@ actor GitHubAPIClient {
             path: "/user/repos",
             queryItems: [
                 URLQueryItem(name: "sort", value: "pushed"),
-                URLQueryItem(name: "per_page", value: "20"),
+                URLQueryItem(name: "per_page", value: "10"),
             ],
             token: token
         )

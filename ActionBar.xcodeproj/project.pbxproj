@@ -24,10 +24,12 @@
 		A10001000000000000000014 /* RelativeTime.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002000000000000000014 /* RelativeTime.swift */; };
 		A10001000000000000000015 /* GitHubIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002000000000000000015 /* GitHubIcon.swift */; };
 		A10001000000000000000016 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A10002000000000000000016 /* Assets.xcassets */; };
+		A10001000000000000000017 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002000000000000000017 /* SettingsView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		24E6B8522F2D684B00884177 /* MyIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = MyIcon.icon; sourceTree = "<group>"; };
+		24F874A92F2DF07C00553174 /* ActionBarRelease.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ActionBarRelease.entitlements; sourceTree = "<group>"; };
 		A10002000000000000000001 /* ActionBarApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionBarApp.swift; sourceTree = "<group>"; };
 		A10002000000000000000002 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		A10002000000000000000003 /* WorkflowRun.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkflowRun.swift; sourceTree = "<group>"; };
@@ -44,6 +46,7 @@
 		A10002000000000000000014 /* RelativeTime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelativeTime.swift; sourceTree = "<group>"; };
 		A10002000000000000000015 /* GitHubIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubIcon.swift; sourceTree = "<group>"; };
 		A10002000000000000000016 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A10002000000000000000017 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		A10003000000000000000001 /* ActionBar.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ActionBar.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -61,6 +64,7 @@
 		A10005000000000000000001 = {
 			isa = PBXGroup;
 			children = (
+				24F874A92F2DF07C00553174 /* ActionBarRelease.entitlements */,
 				A10005000000000000000003 /* Sources */,
 				A10005000000000000000008 /* Resources */,
 				A10005000000000000000002 /* Products */,
@@ -125,6 +129,7 @@
 				A10002000000000000000011 /* SetupView.swift */,
 				A10002000000000000000012 /* AboutView.swift */,
 				A10002000000000000000013 /* MenuContentView.swift */,
+				A10002000000000000000017 /* SettingsView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -227,6 +232,7 @@
 				A10001000000000000000013 /* MenuContentView.swift in Sources */,
 				A10001000000000000000014 /* RelativeTime.swift in Sources */,
 				A10001000000000000000015 /* GitHubIcon.swift in Sources */,
+				A10001000000000000000017 /* SettingsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -367,6 +373,7 @@
 				ARCHS = "$(ARCHS_STANDARD)";
 				ASSETCATALOG_COMPILER_APPICON_NAME = MyIcon;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
+				CODE_SIGN_ENTITLEMENTS = ActionBarRelease.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;

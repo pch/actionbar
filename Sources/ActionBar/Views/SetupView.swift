@@ -24,7 +24,7 @@ struct SetupView: View {
                 .aspectRatio(contentMode: .fit)
                 .frame(width: 32, height: 32)
 
-            Text("GitHub Actions Menu")
+            Text("Action Bar for GitHub")
                 .font(.headline)
 
             Text("Monitor your GitHub Actions workflow runs.")

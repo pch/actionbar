@@ -33,6 +33,15 @@ struct MenuContentView: View {
                 }
                 .buttonStyle(.plain)
                 .help("Refresh now")
+                Button(action: {
+                    appState.showingSettings = true
+                    appState.fetchAvailableRepos()
+                }) {
+                    Image(systemName: "gearshape")
+                        .font(.system(size: 11))
+                }
+                .buttonStyle(.plain)
+                .help("Settings")
             }
             .padding(.horizontal, 16)
             .padding(.top, 12)
@@ -41,7 +50,9 @@ struct MenuContentView: View {
             Divider()
 
             // Content
-            if let error = appState.errorMessage {
+            if appState.showingSettings {
+                SettingsView()
+            } else if let error = appState.errorMessage {
                 errorView(error)
             } else if appState.runs.isEmpty && appState.isLoading {
                 loadingView
