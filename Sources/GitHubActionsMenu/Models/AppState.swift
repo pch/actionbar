@@ -121,7 +121,7 @@ final class AppState: ObservableObject {
 
     private func startPolling() {
         fetchRunsInitial()
-        pollTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
+        pollTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
             guard let self else { return }
             Task { @MainActor in
                 await self.fetchRuns()

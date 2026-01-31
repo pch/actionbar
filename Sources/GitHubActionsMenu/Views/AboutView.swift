@@ -19,7 +19,7 @@ struct AboutView: View {
                 .foregroundColor(.secondary)
 
             Button("Website") {
-                if let url = URL(string: "https://github.com/nicepkg/github-actions-menu") {
+                if let url = URL(string: "https://ptrchm.com/actionbar/") {
                     NSWorkspace.shared.open(url)
                 }
             }

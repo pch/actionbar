@@ -21,8 +21,8 @@ struct StatusDotView: View {
                     isPulsing = true
                 }
             }
-            .onChange(of: status) { newStatus in
-                isPulsing = newStatus == .running
+            .onChange(of: status) {
+                isPulsing = status == .running
             }
     }
 

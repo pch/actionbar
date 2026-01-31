@@ -5,11 +5,14 @@ struct GitHubActionsMenuApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var appState = AppState()
 
+    init() {
+        _appState.wrappedValue.start()
+    }
+
     var body: some Scene {
         MenuBarExtra {
             MenuContentView()
                 .environmentObject(appState)
-                .onAppear { appState.start() }
         } label: {
             MenuBarLabel(appState: appState)
         }

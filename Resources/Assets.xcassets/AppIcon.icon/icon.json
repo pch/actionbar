@@ -1,0 +1,57 @@
+{
+  "fill" : {
+    "solid" : "srgb:0.26052,0.26052,0.26052,1.00000"
+  },
+  "groups" : [
+    {
+      "layers" : [
+        {
+          "fill" : {
+            "solid" : "extended-srgb:0.15686,0.80392,0.25490,1.00000"
+          },
+          "image-name" : "SVG Image 2.svg",
+          "name" : "SVG Image 2",
+          "position" : {
+            "scale" : 1.25,
+            "translation-in-points" : [
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "blend-mode" : "normal",
+          "fill" : "automatic",
+          "glass" : false,
+          "hidden" : false,
+          "image-name" : "GitHub_Invertocat_Black.svg",
+          "name" : "GitHub_Invertocat_Black",
+          "opacity" : 0.2,
+          "position" : {
+            "scale" : 8.4,
+            "translation-in-points" : [
+              1.8204059415438678e-06,
+              -9.0234375
+            ]
+          }
+        }
+      ],
+      "lighting" : "individual",
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "specular" : true,
+      "translucency" : {
+        "enabled" : false,
+        "value" : 0.5
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "circles" : [
+      "watchOS"
+    ],
+    "squares" : "shared"
+  }
+}

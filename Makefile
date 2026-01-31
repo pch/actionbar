@@ -1,25 +1,28 @@
-APP_NAME = GitHubActionsMenu
-BUILD_DIR = .build/apple/Products/Release
-APP_BUNDLE = $(APP_NAME).app
+APP_NAME = ActionBar
+PROJECT = $(APP_NAME).xcodeproj
+SCHEME = $(APP_NAME)
+BUILD_DIR = $(shell xcodebuild -project $(PROJECT) -scheme $(SCHEME) -configuration Release -showBuildSettings 2>/dev/null | grep -m1 '^\s*BUILT_PRODUCTS_DIR' | sed 's/.*= //')
+APP_BUNDLE = $(BUILD_DIR)/$(APP_NAME).app
 
-.PHONY: build bundle run clean
+TEAM_ID = ZX8SV23YKJ
+KEYCHAIN_PROFILE = notary
+
+.PHONY: build notarize run clean
 
 build:
-	swift build -c release --arch arm64 --arch x86_64
+	xcodebuild -project $(PROJECT) -scheme $(SCHEME) -configuration Release build
 
-bundle: build
-	rm -rf $(APP_BUNDLE)
-	mkdir -p $(APP_BUNDLE)/Contents/MacOS
-	mkdir -p $(APP_BUNDLE)/Contents/Resources
-	cp $(BUILD_DIR)/$(APP_NAME) $(APP_BUNDLE)/Contents/MacOS/$(APP_NAME)
-	cp Resources/Info.plist $(APP_BUNDLE)/Contents/Info.plist
-	cp Resources/AppIcon.icns $(APP_BUNDLE)/Contents/Resources/AppIcon.icns
-	codesign --force --options runtime --sign "Developer ID Application: Piotr Chmolowski (ZX8SV23YKJ)" $(APP_BUNDLE)
+notarize: build
+	ditto -c -k --keepParent "$(APP_BUNDLE)" $(APP_NAME).zip
+	xcrun notarytool submit $(APP_NAME).zip --keychain-profile $(KEYCHAIN_PROFILE) --wait
+	xcrun stapler staple "$(APP_BUNDLE)"
+	rm $(APP_NAME).zip
 
-run: bundle
+run: build
 	-pkill -x $(APP_NAME)
 	sleep 0.5
-	open $(APP_BUNDLE)
+	open "$(APP_BUNDLE)"
 
 clean:
-	rm -rf .build $(APP_BUNDLE)
+	xcodebuild -project $(PROJECT) -scheme $(SCHEME) clean
+	rm -rf ~/Library/Developer/Xcode/DerivedData/$(APP_NAME)-*
