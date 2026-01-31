@@ -85,7 +85,7 @@
 				A10005000000000000000009 /* Utilities */,
 			);
 			name = Sources;
-			path = Sources/GitHubActionsMenu;
+			path = Sources/ActionBar;
 			sourceTree = "<group>";
 		};
 		A10005000000000000000004 /* App */ = {
