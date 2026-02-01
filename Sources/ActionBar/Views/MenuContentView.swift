@@ -111,7 +111,8 @@ struct MenuContentView: View {
 
                     if run.id != appState.runs.last?.id {
                         Divider()
-                            .padding(.leading, 32)
+                            .opacity(0.5)
+                            .padding(.horizontal, 16)
                     }
                 }
             }

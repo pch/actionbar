@@ -41,8 +41,10 @@ struct WorkflowRowView: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 6)
         .background(
-            RoundedRectangle(cornerRadius: 4)
+            RoundedRectangle(cornerRadius: 6)
                 .fill(isHovered ? Color.primary.opacity(0.08) : Color.clear)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 4)
         )
         .contentShape(Rectangle())
         .onHover { hovering in
