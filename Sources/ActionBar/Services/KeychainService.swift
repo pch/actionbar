@@ -48,7 +48,7 @@ enum KeychainService {
 
         // If the item exists but we can't access it (stale ACL from previous build),
         // delete it so the user gets a clean setup view instead of repeated prompts.
-        if status != errSecItemNotFound {
+        if status == errSecInteractionNotAllowed || status == errSecAuthFailed {
             deleteToken()
         }
 

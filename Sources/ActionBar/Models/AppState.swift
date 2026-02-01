@@ -15,6 +15,7 @@ final class AppState: ObservableObject {
     @Published var repoSelectionSnapshot: Set<String> = []
     @Published var availableRepos: [Repository] = []
     @Published var isLoadingRepos = false
+    @Published var repoListIsCapped = false
     @Published var showingSettings = false
     @Published var pollingInterval: TimeInterval = 30
 
@@ -24,6 +25,7 @@ final class AppState: ObservableObject {
     private var oauthTask: Task<Void, Never>?
     private var previousRunStates: [Int: String] = [:] // run.id -> status/conclusion
     private var hasLoadedOnce = false
+    private var isFetchingRuns = false
 
     private static let selectedReposKey = "selectedRepositories"
     private static let pollingIntervalKey = "pollingInterval"
@@ -115,6 +117,7 @@ final class AppState: ObservableObject {
         errorMessage = nil
         selectedRepoNames = []
         availableRepos = []
+        repoListIsCapped = false
         showingSettings = false
         UserDefaults.standard.removeObject(forKey: Self.selectedReposKey)
     }
@@ -158,6 +161,10 @@ final class AppState: ObservableObject {
     }
 
     private func fetchRuns() async {
+        guard !isFetchingRuns else { return }
+        isFetchingRuns = true
+        defer { isFetchingRuns = false }
+
         guard let token = KeychainService.loadToken() else {
             isAuthenticated = false
             return
@@ -289,6 +296,7 @@ final class AppState: ObservableObject {
             do {
                 let repos = try await apiClient.fetchAllRepos(token: token)
                 availableRepos = repos
+                repoListIsCapped = repos.count >= 200
             } catch {
                 // Keep whatever we had before
             }

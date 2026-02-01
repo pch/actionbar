@@ -2,6 +2,7 @@ import Foundation
 
 enum GitHubAPIError: Error, LocalizedError {
     case invalidToken
+    case rateLimited
     case networkError(Error)
     case invalidResponse(Int)
     case decodingError(Error)
@@ -10,6 +11,8 @@ enum GitHubAPIError: Error, LocalizedError {
         switch self {
         case .invalidToken:
             return "Invalid or expired token"
+        case .rateLimited:
+            return "GitHub API rate limit reached. Please wait and try again."
         case .networkError(let error):
             return "Network error: \(error.localizedDescription)"
         case .invalidResponse(let code):
@@ -51,6 +54,10 @@ actor GitHubAPIClient {
             throw GitHubAPIError.invalidToken
         }
 
+        if isRateLimited(httpResponse) {
+            throw GitHubAPIError.rateLimited
+        }
+
         guard httpResponse.statusCode == 200 else {
             throw GitHubAPIError.invalidResponse(httpResponse.statusCode)
         }
@@ -72,33 +79,72 @@ actor GitHubAPIClient {
             repoFullNames = try await fetchRepos(token: token).map(\.fullName)
         }
 
-        return await withTaskGroup(of: [WorkflowRun].self) { group in
-            for repoName in repoFullNames {
+        let (allRuns, errors) = await withTaskGroup(of: (runs: [WorkflowRun], error: Error?).self) { group in
+            let maxConcurrentRequests = 4
+            var iterator = repoFullNames.makeIterator()
+
+            for _ in 0..<maxConcurrentRequests {
+                guard let repoName = iterator.next() else { break }
                 group.addTask {
                     do {
-                        return try await self.fetchRunsForRepo(repo: repoName, token: token, actor: actor)
+                        let runs = try await self.fetchRunsForRepo(repo: repoName, token: token, actor: actor)
+                        return (runs: runs, error: nil)
                     } catch {
-                        // Silently skip repos where we can't fetch runs (e.g. no Actions configured)
-                        return []
+                        return (runs: [], error: error)
                     }
                 }
             }
 
             var allRuns: [WorkflowRun] = []
-            for await runs in group {
-                allRuns.append(contentsOf: runs)
+            var errors: [Error] = []
+            while let result = await group.next() {
+                allRuns.append(contentsOf: result.runs)
+                if let error = result.error {
+                    // Allow partial results unless the failure is critical.
+                    errors.append(error)
+                }
+                if let repoName = iterator.next() {
+                    group.addTask {
+                        do {
+                            let runs = try await self.fetchRunsForRepo(repo: repoName, token: token, actor: actor)
+                            return (runs: runs, error: nil)
+                        } catch {
+                            return (runs: [], error: error)
+                        }
+                    }
+                }
             }
 
-            // Filter out automated/scheduled runs (cron jobs, dependabot, etc.)
-            let excludedEvents: Set<String> = ["schedule", "repository_dispatch"]
-            allRuns = allRuns.filter { run in
-                guard let event = run.event else { return true }
-                return !excludedEvents.contains(event)
-            }
-
-            allRuns.sort { $0.updatedAt > $1.updatedAt }
-            return Array(allRuns.prefix(20))
+            return (allRuns, errors)
         }
+
+        if errors.contains(where: { error in
+            guard let apiError = error as? GitHubAPIError else { return false }
+            if case .invalidToken = apiError { return true }
+            return false
+        }) {
+            throw GitHubAPIError.invalidToken
+        }
+        if errors.contains(where: { error in
+            guard let apiError = error as? GitHubAPIError else { return false }
+            if case .rateLimited = apiError { return true }
+            return false
+        }) {
+            throw GitHubAPIError.rateLimited
+        }
+        if !errors.isEmpty && allRuns.isEmpty {
+            throw errors[0]
+        }
+
+        // Filter out automated/scheduled runs (cron jobs, dependabot, etc.)
+        let excludedEvents: Set<String> = ["schedule", "repository_dispatch"]
+        let filteredRuns = allRuns.filter { run in
+            guard let event = run.event else { return true }
+            return !excludedEvents.contains(event)
+        }
+
+        let sortedRuns = filteredRuns.sorted { $0.updatedAt > $1.updatedAt }
+        return Array(sortedRuns.prefix(20))
     }
 
     func fetchAllRepos(token: String) async throws -> [Repository] {
@@ -125,6 +171,10 @@ actor GitHubAPIClient {
 
             if httpResponse.statusCode == 401 {
                 throw GitHubAPIError.invalidToken
+            }
+
+            if httpResponse.statusCode == 403 || httpResponse.statusCode == 429 {
+                throw GitHubAPIError.rateLimited
             }
 
             guard httpResponse.statusCode == 200 else {
@@ -169,6 +219,10 @@ actor GitHubAPIClient {
             throw GitHubAPIError.invalidToken
         }
 
+        if isRateLimited(httpResponse) {
+            throw GitHubAPIError.rateLimited
+        }
+
         guard httpResponse.statusCode == 200 else {
             throw GitHubAPIError.invalidResponse(httpResponse.statusCode)
         }
@@ -194,8 +248,25 @@ actor GitHubAPIClient {
 
         let (data, response) = try await perform(request)
 
-        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw GitHubAPIError.invalidResponse(0)
+        }
+
+        if httpResponse.statusCode == 401 {
+            throw GitHubAPIError.invalidToken
+        }
+
+        if isRateLimited(httpResponse) {
+            throw GitHubAPIError.rateLimited
+        }
+
+        if httpResponse.statusCode == 404 || httpResponse.statusCode == 409 {
+            // Actions disabled or no runs available.
             return []
+        }
+
+        guard httpResponse.statusCode == 200 else {
+            throw GitHubAPIError.invalidResponse(httpResponse.statusCode)
         }
 
         do {
@@ -215,6 +286,16 @@ actor GitHubAPIClient {
         var request = URLRequest(url: components.url!)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         return request
+    }
+
+    private func isRateLimited(_ response: HTTPURLResponse) -> Bool {
+        if response.statusCode == 429 { return true }
+        if response.statusCode == 403,
+           let remaining = response.value(forHTTPHeaderField: "x-ratelimit-remaining"),
+           remaining == "0" {
+            return true
+        }
+        return false
     }
 
     private func perform(_ request: URLRequest) async throws -> (Data, URLResponse) {

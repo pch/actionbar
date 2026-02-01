@@ -114,6 +114,13 @@ struct SettingsView: View {
                     .disabled(appState.selectedRepoNames == appState.repoSelectionSnapshot)
                 }
 
+                if appState.repoListIsCapped {
+                    Text("Only the first 200 repositories are shown.")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
                 if showSelectAllWarning {
                     HStack(alignment: .top, spacing: 6) {
                         Image(systemName: "exclamationmark.triangle.fill")
