@@ -12,6 +12,7 @@ final class AppState: ObservableObject {
     @Published var deviceCode: DeviceCodeResponse?
     @Published var isLoggingIn = false
     @Published var selectedRepoNames: Set<String> = []
+    @Published var repoSelectionSnapshot: Set<String> = []
     @Published var availableRepos: [Repository] = []
     @Published var isLoadingRepos = false
     @Published var showingSettings = false
@@ -232,8 +233,20 @@ final class AppState: ObservableObject {
         }
     }
 
-    private func saveSelectedRepos() {
+    func saveSelectedRepos() {
         UserDefaults.standard.set(Array(selectedRepoNames), forKey: Self.selectedReposKey)
+    }
+
+    func snapshotSelectedRepos() {
+        if let saved = UserDefaults.standard.stringArray(forKey: Self.selectedReposKey) {
+            repoSelectionSnapshot = Set(saved)
+        } else {
+            repoSelectionSnapshot = []
+        }
+    }
+
+    func resetReposToSnapshot() {
+        selectedRepoNames = repoSelectionSnapshot
     }
 
     private func loadPollingInterval() {
@@ -258,17 +271,14 @@ final class AppState: ObservableObject {
         } else {
             selectedRepoNames.insert(repoName)
         }
-        saveSelectedRepos()
     }
 
     func selectAllRepos(_ repoNames: [String]) {
         selectedRepoNames = Set(repoNames)
-        saveSelectedRepos()
     }
 
     func deselectAllRepos() {
         selectedRepoNames = []
-        saveSelectedRepos()
     }
 
     func fetchAvailableRepos(force: Bool = false) {

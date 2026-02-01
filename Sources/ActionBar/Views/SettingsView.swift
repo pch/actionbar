@@ -33,6 +33,7 @@ struct SettingsView: View {
                     .font(.headline)
                 Spacer()
                 Button("Done") {
+                    appState.saveSelectedRepos()
                     appState.showingSettings = false
                     appState.refreshNow()
                 }
@@ -103,6 +104,14 @@ struct SettingsView: View {
                     .font(.caption)
                     .buttonStyle(.plain)
                     .foregroundColor(.accentColor)
+                    Button("Reset") {
+                        showSelectAllWarning = false
+                        appState.resetReposToSnapshot()
+                    }
+                    .font(.caption)
+                    .buttonStyle(.plain)
+                    .foregroundColor(.accentColor)
+                    .disabled(appState.selectedRepoNames == appState.repoSelectionSnapshot)
                 }
 
                 if showSelectAllWarning {
@@ -167,6 +176,9 @@ struct SettingsView: View {
                 }
             }
             .frame(maxHeight: 250)
+        }
+        .onAppear {
+            appState.snapshotSelectedRepos()
         }
     }
 }
