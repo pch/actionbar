@@ -30,4 +30,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     ) {
         completionHandler([.banner, .sound])
     }
+
+    // Open the workflow run in the browser when the notification is clicked
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        if let urlString = response.notification.request.content.userInfo["url"] as? String,
+           let url = URL(string: urlString) {
+            NSWorkspace.shared.open(url)
+        }
+        completionHandler()
+    }
 }

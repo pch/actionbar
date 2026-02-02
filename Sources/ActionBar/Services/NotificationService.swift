@@ -12,6 +12,7 @@ enum NotificationService {
         content.title = "\(status.label): \(run.displayTitle ?? run.name ?? "Workflow")"
         content.body = "\(run.repositoryFullName) · \(run.headBranch ?? "")"
         content.sound = .default
+        content.userInfo = ["url": run.htmlUrl]
 
         let request = UNNotificationRequest(
             identifier: "run-\(run.id)",
