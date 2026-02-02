@@ -1,5 +1,4 @@
 import Foundation
-import LocalAuthentication
 import Security
 
 enum KeychainService {
@@ -20,23 +19,30 @@ enum KeychainService {
         ]
 
         let status = SecItemAdd(query as CFDictionary, nil)
+
+        if status == errSecDuplicateItem {
+            let searchQuery: [String: Any] = [
+                kSecClass as String: kSecClassGenericPassword,
+                kSecAttrService as String: service,
+                kSecAttrAccount as String: account,
+            ]
+            let updateAttrs: [String: Any] = [
+                kSecValueData as String: data,
+                kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
+            ]
+            return SecItemUpdate(searchQuery as CFDictionary, updateAttrs as CFDictionary) == errSecSuccess
+        }
+
         return status == errSecSuccess
     }
 
     static func loadToken() -> String? {
-        // Use LAContext with interactionNotAllowed to prevent any system prompts.
-        // If the keychain ACL doesn't match (e.g. after a rebuild with a new
-        // ad-hoc signature), this will fail silently instead of showing a dialog.
-        let context = LAContext()
-        context.interactionNotAllowed = true
-
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: account,
             kSecReturnData as String: true,
             kSecMatchLimit as String: kSecMatchLimitOne,
-            kSecUseAuthenticationContext as String: context,
         ]
 
         var result: AnyObject?
@@ -46,9 +52,10 @@ enum KeychainService {
             return String(data: data, encoding: .utf8)
         }
 
-        // If the item exists but we can't access it (stale ACL from previous build),
-        // delete it so the user gets a clean setup view instead of repeated prompts.
-        if status == errSecInteractionNotAllowed || status == errSecAuthFailed {
+        // Delete only when the item is permanently inaccessible (e.g., stale code
+        // signature after rebuild). Transient errors like errSecInteractionNotAllowed
+        // (keychain locked) should not wipe a valid token.
+        if status == errSecAuthFailed || status == errSecDecode {
             deleteToken()
         }
 
