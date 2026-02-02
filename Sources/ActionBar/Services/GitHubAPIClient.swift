@@ -147,16 +147,16 @@ actor GitHubAPIClient {
         return Array(sortedRuns.prefix(20))
     }
 
-    func fetchAllRepos(token: String) async throws -> [Repository] {
-        var allRepos: [Repository] = []
-        var page = 1
-        let maxRepos = 200
+    // MARK: - Installations
 
-        while allRepos.count < maxRepos {
+    func fetchInstallations(token: String) async throws -> [AppInstallation] {
+        var allInstallations: [AppInstallation] = []
+        var page = 1
+
+        while true {
             let request = makeRequest(
-                path: "/user/repos",
+                path: "/user/installations",
                 queryItems: [
-                    URLQueryItem(name: "sort", value: "full_name"),
                     URLQueryItem(name: "per_page", value: "100"),
                     URLQueryItem(name: "page", value: "\(page)"),
                 ],
@@ -164,74 +164,71 @@ actor GitHubAPIClient {
             )
 
             let (data, response) = try await perform(request)
+            try validateResponse(response)
 
-            guard let httpResponse = response as? HTTPURLResponse else {
-                throw GitHubAPIError.invalidResponse(0)
-            }
-
-            if httpResponse.statusCode == 401 {
-                throw GitHubAPIError.invalidToken
-            }
-
-            if httpResponse.statusCode == 403 || httpResponse.statusCode == 429 {
-                throw GitHubAPIError.rateLimited
-            }
-
-            guard httpResponse.statusCode == 200 else {
-                throw GitHubAPIError.invalidResponse(httpResponse.statusCode)
-            }
-
-            let repos: [Repository]
+            let result: InstallationsResponse
             do {
-                repos = try decoder.decode([Repository].self, from: data)
+                result = try decoder.decode(InstallationsResponse.self, from: data)
             } catch {
                 throw GitHubAPIError.decodingError(error)
             }
 
-            if repos.isEmpty { break }
-            allRepos.append(contentsOf: repos)
-            if repos.count < 100 { break }
+            allInstallations.append(contentsOf: result.installations)
+            if allInstallations.count >= result.totalCount || result.installations.count < 100 { break }
             page += 1
         }
 
-        return Array(allRepos.prefix(maxRepos))
+        return allInstallations
+    }
+
+    func hasInstallations(token: String) async throws -> Bool {
+        let installations = try await fetchInstallations(token: token)
+        return !installations.isEmpty
+    }
+
+    func fetchAllRepos(token: String) async throws -> [Repository] {
+        let installations = try await fetchInstallations(token: token)
+        var allRepos: [Repository] = []
+        let maxRepos = 200
+
+        for installation in installations {
+            var page = 1
+            while allRepos.count < maxRepos {
+                let request = makeRequest(
+                    path: "/user/installations/\(installation.id)/repositories",
+                    queryItems: [
+                        URLQueryItem(name: "per_page", value: "100"),
+                        URLQueryItem(name: "page", value: "\(page)"),
+                    ],
+                    token: token
+                )
+
+                let (data, response) = try await perform(request)
+                try validateResponse(response)
+
+                let result: InstallationRepositoriesResponse
+                do {
+                    result = try decoder.decode(InstallationRepositoriesResponse.self, from: data)
+                } catch {
+                    throw GitHubAPIError.decodingError(error)
+                }
+
+                allRepos.append(contentsOf: result.repositories)
+                if allRepos.count >= result.totalCount || result.repositories.count < 100 { break }
+                page += 1
+            }
+
+            if allRepos.count >= maxRepos { break }
+        }
+
+        let sorted = allRepos.sorted { $0.fullName.localizedCaseInsensitiveCompare($1.fullName) == .orderedAscending }
+        return Array(sorted.prefix(maxRepos))
     }
 
     // MARK: - Private
 
     private func fetchRepos(token: String) async throws -> [Repository] {
-        let request = makeRequest(
-            path: "/user/repos",
-            queryItems: [
-                URLQueryItem(name: "sort", value: "pushed"),
-                URLQueryItem(name: "per_page", value: "10"),
-            ],
-            token: token
-        )
-
-        let (data, response) = try await perform(request)
-
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw GitHubAPIError.invalidResponse(0)
-        }
-
-        if httpResponse.statusCode == 401 {
-            throw GitHubAPIError.invalidToken
-        }
-
-        if isRateLimited(httpResponse) {
-            throw GitHubAPIError.rateLimited
-        }
-
-        guard httpResponse.statusCode == 200 else {
-            throw GitHubAPIError.invalidResponse(httpResponse.statusCode)
-        }
-
-        do {
-            return try decoder.decode([Repository].self, from: data)
-        } catch {
-            throw GitHubAPIError.decodingError(error)
-        }
+        return try await fetchAllRepos(token: token)
     }
 
     private func fetchRunsForRepo(repo: String, token: String, actor: String? = nil) async throws -> [WorkflowRun] {
@@ -286,6 +283,21 @@ actor GitHubAPIClient {
         var request = URLRequest(url: components.url!)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         return request
+    }
+
+    private func validateResponse(_ response: URLResponse) throws {
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw GitHubAPIError.invalidResponse(0)
+        }
+        if httpResponse.statusCode == 401 {
+            throw GitHubAPIError.invalidToken
+        }
+        if isRateLimited(httpResponse) {
+            throw GitHubAPIError.rateLimited
+        }
+        guard httpResponse.statusCode == 200 else {
+            throw GitHubAPIError.invalidResponse(httpResponse.statusCode)
+        }
     }
 
     private func isRateLimited(_ response: HTTPURLResponse) -> Bool {

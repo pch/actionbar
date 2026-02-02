@@ -5,7 +5,9 @@ struct SetupView: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            if let code = appState.deviceCode {
+            if appState.needsInstallation {
+                installationView
+            } else if let code = appState.deviceCode {
                 deviceCodeView(code)
             } else {
                 initialView
@@ -55,6 +57,52 @@ struct SetupView: View {
 
             Button("Quit") {
                 NSApplication.shared.terminate(nil)
+            }
+            .font(.caption)
+            .buttonStyle(.plain)
+            .foregroundColor(.secondary)
+        }
+    }
+
+    // MARK: - Installation Required
+
+    private var installationView: some View {
+        Group {
+            Image(systemName: "puzzlepiece.extension")
+                .font(.system(size: 28))
+                .foregroundColor(.accentColor)
+
+            Text("Install the App")
+                .font(.headline)
+
+            Text("Action Bar needs to be installed on your GitHub account to access workflow data.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+
+            Button(action: { appState.openInstallationPage() }) {
+                Text("Install on GitHub")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .keyboardShortcut(.defaultAction)
+
+            Button("Check Again") {
+                appState.checkInstallationAndStart()
+            }
+            .font(.caption)
+            .buttonStyle(.plain)
+            .foregroundColor(.accentColor)
+
+            if let error = appState.errorMessage {
+                Text(error)
+                    .font(.caption)
+                    .foregroundColor(.red)
+                    .multilineTextAlignment(.center)
+            }
+
+            Button("Sign Out") {
+                appState.signOut()
             }
             .font(.caption)
             .buttonStyle(.plain)

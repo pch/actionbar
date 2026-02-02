@@ -64,7 +64,7 @@ enum OAuthError: Error, LocalizedError {
 // MARK: - OAuth Service
 
 actor OAuthService {
-    static let clientID = "Ov23liuCO9iOumCUT4Ne"
+    static let clientID = "Iv23liMJQvDNiRMhbNes"
 
     func requestDeviceCode() async throws -> DeviceCodeResponse {
         var request = URLRequest(url: URL(string: "https://github.com/login/device/code")!)
@@ -74,7 +74,6 @@ actor OAuthService {
 
         let body: [String: String] = [
             "client_id": Self.clientID,
-            "scope": "repo"
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 

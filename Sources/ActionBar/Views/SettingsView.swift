@@ -66,6 +66,25 @@ struct SettingsView: View {
 
             Divider()
 
+            // GitHub App installations
+            HStack {
+                Text("GitHub App")
+                    .font(.subheadline)
+                Spacer()
+                Button("Manage installations") {
+                    if let url = URL(string: "https://github.com/apps/actionbar-macos") {
+                        NSWorkspace.shared.open(url)
+                    }
+                }
+                .font(.caption)
+                .buttonStyle(.plain)
+                .foregroundColor(.accentColor)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+
+            Divider()
+
             // Repositories section header
             VStack(spacing: 6) {
                 HStack {

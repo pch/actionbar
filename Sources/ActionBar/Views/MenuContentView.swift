@@ -8,7 +8,7 @@ struct MenuContentView: View {
     private let tickTimer = Timer.publish(every: 30, on: .main, in: .common).autoconnect()
 
     var body: some View {
-        if appState.isAuthenticated {
+        if appState.isAuthenticated && !appState.needsInstallation {
             authenticatedView
         } else {
             SetupView()

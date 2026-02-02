@@ -131,6 +131,37 @@ enum RunStatus {
     }
 }
 
+// MARK: - GitHub App Installation Models
+
+struct InstallationsResponse: Decodable {
+    let totalCount: Int
+    let installations: [AppInstallation]
+
+    enum CodingKeys: String, CodingKey {
+        case totalCount = "total_count"
+        case installations
+    }
+}
+
+struct AppInstallation: Decodable {
+    let id: Int
+    let account: Account
+
+    struct Account: Decodable {
+        let login: String
+    }
+}
+
+struct InstallationRepositoriesResponse: Decodable {
+    let totalCount: Int
+    let repositories: [Repository]
+
+    enum CodingKeys: String, CodingKey {
+        case totalCount = "total_count"
+        case repositories
+    }
+}
+
 // MARK: - GitHub User (for token validation)
 
 struct GitHubUser: Decodable {

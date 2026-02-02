@@ -17,6 +17,7 @@ final class AppState: ObservableObject {
     @Published var isLoadingRepos = false
     @Published var repoListIsCapped = false
     @Published var showingSettings = false
+    @Published var needsInstallation = false
     @Published var pollingInterval: TimeInterval = 30
 
     private let apiClient = GitHubAPIClient()
@@ -44,12 +45,16 @@ final class AppState: ObservableObject {
         loadPollingInterval()
         guard let token = KeychainService.loadToken() else { return }
         isAuthenticated = true
-        // Fetch username for actor-filtered polling, then start
         Task {
             if let user = try? await apiClient.validateToken(token) {
                 username = user.login
             }
-            startPolling()
+            let hasInstalls = (try? await apiClient.hasInstallations(token: token)) ?? false
+            if hasInstalls {
+                startPolling()
+            } else {
+                needsInstallation = true
+            }
         }
     }
 
@@ -85,7 +90,13 @@ final class AppState: ObservableObject {
                 isAuthenticated = true
                 deviceCode = nil
                 isLoggingIn = false
-                startPolling()
+
+                let hasInstalls = try await apiClient.hasInstallations(token: token)
+                if hasInstalls {
+                    startPolling()
+                } else {
+                    needsInstallation = true
+                }
             } catch is CancellationError {
                 deviceCode = nil
                 isLoggingIn = false
@@ -105,11 +116,33 @@ final class AppState: ObservableObject {
         errorMessage = nil
     }
 
+    func openInstallationPage() {
+        if let url = URL(string: "https://github.com/apps/actionbar-macos") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
+    func checkInstallationAndStart() {
+        guard let token = KeychainService.loadToken() else { return }
+        Task {
+            do {
+                let hasInstalls = try await apiClient.hasInstallations(token: token)
+                if hasInstalls {
+                    needsInstallation = false
+                    startPolling()
+                }
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+        }
+    }
+
     func signOut() {
         cancelLogin()
         stopPolling()
         KeychainService.deleteToken()
         isAuthenticated = false
+        needsInstallation = false
         runs = []
         username = nil
         previousRunStates = [:]
