@@ -5,16 +5,13 @@ struct ActionBarApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var appState = AppState()
 
-    init() {
-        _appState.wrappedValue.start()
-    }
-
     var body: some Scene {
         MenuBarExtra {
             MenuContentView()
                 .environmentObject(appState)
         } label: {
             MenuBarLabel(appState: appState)
+                .onAppear { appState.start() }
         }
         .menuBarExtraStyle(.window)
     }

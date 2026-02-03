@@ -4,7 +4,7 @@ import SwiftUI
 
 @MainActor
 final class AppState: ObservableObject {
-    @Published var isAuthenticated = false
+    @Published var isAuthenticated = KeychainService.loadToken() != nil
     @Published var runs: [WorkflowRun] = []
     @Published var isLoading = false
     @Published var errorMessage: String?
@@ -18,11 +18,13 @@ final class AppState: ObservableObject {
     @Published var repoListIsCapped = false
     @Published var showingSettings = false
     @Published var needsInstallation = false
+    @Published var isCheckingInstallation = false
     @Published var pollingInterval: TimeInterval = 30
 
     private let apiClient = GitHubAPIClient()
     private let oauthService = OAuthService()
     private var pollTimer: Timer?
+    private var installCheckTask: Task<Void, Never>?
     private var oauthTask: Task<Void, Never>?
     private var previousRunStates: [Int: String] = [:] // run.id -> status/conclusion
     private var hasLoadedOnce = false
@@ -49,11 +51,19 @@ final class AppState: ObservableObject {
             if let user = try? await apiClient.validateToken(token) {
                 username = user.login
             }
-            let hasInstalls = (try? await apiClient.hasInstallations(token: token)) ?? false
-            if hasInstalls {
+
+            do {
+                let hasInstalls = try await apiClient.hasInstallations(token: token)
+                if hasInstalls {
+                    startPolling()
+                } else {
+                    needsInstallation = true
+                    startInstallCheckTimer()
+                }
+            } catch {
+                // API call failed — don't assume no installations.
+                // Start polling; fetchRuns will surface real errors.
                 startPolling()
-            } else {
-                needsInstallation = true
             }
         }
     }
@@ -91,11 +101,17 @@ final class AppState: ObservableObject {
                 deviceCode = nil
                 isLoggingIn = false
 
-                let hasInstalls = try await apiClient.hasInstallations(token: token)
-                if hasInstalls {
+                do {
+                    let hasInstalls = try await apiClient.hasInstallations(token: token)
+                    if hasInstalls {
+                        startPolling()
+                    } else {
+                        needsInstallation = true
+                        startInstallCheckTimer()
+                    }
+                } catch {
+                    // Installation check failed after login — start polling anyway
                     startPolling()
-                } else {
-                    needsInstallation = true
                 }
             } catch is CancellationError {
                 deviceCode = nil
@@ -124,22 +140,52 @@ final class AppState: ObservableObject {
 
     func checkInstallationAndStart() {
         guard let token = KeychainService.loadToken() else { return }
+        isCheckingInstallation = true
         Task {
             do {
                 let hasInstalls = try await apiClient.hasInstallations(token: token)
                 if hasInstalls {
+                    stopInstallCheckTimer()
                     needsInstallation = false
+                    errorMessage = nil
                     startPolling()
+                } else {
+                    errorMessage = "No installation found yet. Please install the app on GitHub first. If you did, wait a bit."
                 }
             } catch {
                 errorMessage = error.localizedDescription
             }
+            isCheckingInstallation = false
         }
+    }
+
+    func startInstallCheckTimer() {
+        stopInstallCheckTimer()
+        installCheckTask = Task {
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(10))
+                guard !Task.isCancelled else { break }
+                guard let token = KeychainService.loadToken() else { continue }
+                let hasInstalls = (try? await apiClient.hasInstallations(token: token)) ?? false
+                if hasInstalls {
+                    needsInstallation = false
+                    errorMessage = nil
+                    startPolling()
+                    break
+                }
+            }
+        }
+    }
+
+    private func stopInstallCheckTimer() {
+        installCheckTask?.cancel()
+        installCheckTask = nil
     }
 
     func signOut() {
         cancelLogin()
         stopPolling()
+        stopInstallCheckTimer()
         KeychainService.deleteToken()
         isAuthenticated = false
         needsInstallation = false
@@ -155,26 +201,24 @@ final class AppState: ObservableObject {
         UserDefaults.standard.removeObject(forKey: Self.selectedReposKey)
     }
 
-    func authenticate(token: String) async throws {
-        let user = try await apiClient.validateToken(token)
-        guard KeychainService.saveToken(token) else {
-            throw GitHubAPIError.networkError(
-                NSError(domain: "KeychainError", code: -1,
-                        userInfo: [NSLocalizedDescriptionKey: "Failed to save token to Keychain"])
-            )
-        }
-        username = user.login
-        isAuthenticated = true
-        startPolling()
-    }
-
     func refreshNow() {
-        Task { await fetchRuns() }
+        isLoading = true
+        Task {
+            let start = Date()
+            await fetchRuns(manageLoading: false)
+            let elapsed = Date().timeIntervalSince(start)
+            let remaining = 0.5 - elapsed
+            if remaining > 0 {
+                try? await Task.sleep(nanoseconds: UInt64(remaining * 1_000_000_000))
+            }
+            isLoading = false
+        }
     }
 
     // MARK: - Polling
 
     private func startPolling() {
+        stopPolling()
         fetchRunsInitial()
         pollTimer = Timer.scheduledTimer(withTimeInterval: pollingInterval, repeats: true) { [weak self] _ in
             guard let self else { return }
@@ -193,7 +237,7 @@ final class AppState: ObservableObject {
         Task { await fetchRuns() }
     }
 
-    private func fetchRuns() async {
+    private func fetchRuns(manageLoading: Bool = true) async {
         guard !isFetchingRuns else { return }
         isFetchingRuns = true
         defer { isFetchingRuns = false }
@@ -203,7 +247,7 @@ final class AppState: ObservableObject {
             return
         }
 
-        if !hasLoadedOnce {
+        if manageLoading && !hasLoadedOnce {
             isLoading = true
         }
         errorMessage = nil
@@ -232,17 +276,17 @@ final class AppState: ObservableObject {
 
             runs = newRuns
             hasLoadedOnce = true
-            isLoading = false
+            if manageLoading { isLoading = false }
         } catch let error as GitHubAPIError {
             if case .invalidToken = error {
                 signOut()
             } else {
                 errorMessage = error.localizedDescription
-                isLoading = false
+                if manageLoading { isLoading = false }
             }
         } catch {
             errorMessage = error.localizedDescription
-            isLoading = false
+            if manageLoading { isLoading = false }
         }
     }
 

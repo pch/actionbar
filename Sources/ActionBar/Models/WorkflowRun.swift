@@ -16,6 +16,12 @@ struct Repository: Decodable, Hashable, Identifiable {
         case fullName = "full_name"
         case htmlUrl = "html_url"
     }
+
+    init(id: Int, fullName: String, htmlUrl: String) {
+        self.id = id
+        self.fullName = fullName
+        self.htmlUrl = htmlUrl
+    }
 }
 
 struct WorkflowRunsResponse: Decodable {

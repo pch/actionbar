@@ -33,6 +33,7 @@ struct SetupView: View {
                 .font(.caption)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
 
             Button(action: { appState.loginWithGitHub() }) {
                 if appState.isLoggingIn {
@@ -79,6 +80,7 @@ struct SetupView: View {
                 .font(.caption)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
 
             Button(action: { appState.openInstallationPage() }) {
                 Text("Install on GitHub")
@@ -87,12 +89,19 @@ struct SetupView: View {
             .buttonStyle(.borderedProminent)
             .keyboardShortcut(.defaultAction)
 
-            Button("Check Again") {
-                appState.checkInstallationAndStart()
+            Text("After installing, it may take up to a minute for GitHub to reflect the change.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Button(action: { appState.checkInstallationAndStart() }) {
+                Text("Check Again")
             }
             .font(.caption)
             .buttonStyle(.plain)
             .foregroundColor(.accentColor)
+            .disabled(appState.isCheckingInstallation)
 
             if let error = appState.errorMessage {
                 Text(error)
@@ -103,6 +112,13 @@ struct SetupView: View {
 
             Button("Sign Out") {
                 appState.signOut()
+            }
+            .font(.caption)
+            .buttonStyle(.plain)
+            .foregroundColor(.secondary)
+
+            Button("Quit") {
+                NSApplication.shared.terminate(nil)
             }
             .font(.caption)
             .buttonStyle(.plain)
@@ -136,6 +152,7 @@ struct SetupView: View {
                 .font(.caption)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
 
             Button(action: {
                 if let url = URL(string: code.verificationUri) {
@@ -160,6 +177,38 @@ struct SetupView: View {
             .font(.caption)
             .buttonStyle(.plain)
             .foregroundColor(.secondary)
+
+            Button("Quit") {
+                NSApplication.shared.terminate(nil)
+            }
+            .font(.caption)
+            .buttonStyle(.plain)
+            .foregroundColor(.secondary)
         }
     }
+}
+
+#Preview("Login") {
+    SetupView()
+        .environmentObject(AppState())
+}
+
+#Preview("Device Code") {
+    let state = AppState()
+    state.deviceCode = DeviceCodeResponse(
+        deviceCode: "abc123",
+        userCode: "ABCD-1234",
+        verificationUri: "https://github.com/login/device",
+        expiresIn: 900,
+        interval: 5
+    )
+    return SetupView()
+        .environmentObject(state)
+}
+
+#Preview("Installation Required") {
+    let state = AppState()
+    state.needsInstallation = true
+    return SetupView()
+        .environmentObject(state)
 }

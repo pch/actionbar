@@ -65,3 +65,51 @@ struct WorkflowRowView: View {
         return run.repositoryFullName
     }
 }
+
+#Preview {
+    WorkflowRowView(
+        run: WorkflowRun(
+            id: 1,
+            name: "CI",
+            displayTitle: "Fix login bug",
+            status: "completed",
+            conclusion: "success",
+            htmlUrl: "https://github.com/owner/repo/actions/runs/1",
+            headBranch: "main",
+            updatedAt: Date().addingTimeInterval(-300),
+            repositoryFullName: "owner/repo"
+        )
+    )
+}
+
+#Preview("Failure") {
+    WorkflowRowView(
+        run: WorkflowRun(
+            id: 2,
+            name: "Tests",
+            displayTitle: "Update dependencies",
+            status: "completed",
+            conclusion: "failure",
+            htmlUrl: "https://github.com/owner/repo/actions/runs/2",
+            headBranch: "feature/auth",
+            updatedAt: Date().addingTimeInterval(-60),
+            repositoryFullName: "owner/repo"
+        )
+    )
+}
+
+#Preview("Running") {
+    WorkflowRowView(
+        run: WorkflowRun(
+            id: 3,
+            name: "Deploy",
+            displayTitle: "Deploy to production",
+            status: "in_progress",
+            conclusion: nil,
+            htmlUrl: "https://github.com/owner/repo/actions/runs/3",
+            headBranch: "main",
+            updatedAt: Date(),
+            repositoryFullName: "owner/repo"
+        )
+    )
+}

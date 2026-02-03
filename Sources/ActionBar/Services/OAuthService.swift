@@ -16,6 +16,14 @@ struct DeviceCodeResponse: Decodable {
         case expiresIn = "expires_in"
         case interval
     }
+
+    init(deviceCode: String, userCode: String, verificationUri: String, expiresIn: Int, interval: Int) {
+        self.deviceCode = deviceCode
+        self.userCode = userCode
+        self.verificationUri = verificationUri
+        self.expiresIn = expiresIn
+        self.interval = interval
+    }
 }
 
 struct OAuthTokenResponse: Decodable {

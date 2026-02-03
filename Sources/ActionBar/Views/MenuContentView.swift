@@ -18,40 +18,43 @@ struct MenuContentView: View {
 
     private var authenticatedView: some View {
         VStack(spacing: 0) {
-            // Header
-            HStack {
-                Text("GitHub Actions")
-                    .font(.headline)
-                Spacer()
-                if appState.isLoading {
-                    ProgressView()
-                        .controlSize(.small)
+            if !appState.showingSettings {
+                // Header
+                HStack {
+                    Text("GitHub Actions")
+                        .font(.headline)
+                    Spacer()
+                    if appState.isLoading {
+                        ProgressView()
+                            .controlSize(.small)
+                    }
+                    Button(action: { appState.refreshNow() }) {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 11))
+                    }
+                    .buttonStyle(.plain)
+                    .help("Refresh now")
+                    Button(action: {
+                        appState.showingSettings = true
+                        appState.fetchAvailableRepos()
+                    }) {
+                        Image(systemName: "gearshape")
+                            .font(.system(size: 11))
+                    }
+                    .buttonStyle(.plain)
+                    .help("Settings")
                 }
-                Button(action: { appState.refreshNow() }) {
-                    Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 11))
-                }
-                .buttonStyle(.plain)
-                .help("Refresh now")
-                Button(action: {
-                    appState.showingSettings = true
-                    appState.fetchAvailableRepos()
-                }) {
-                    Image(systemName: "gearshape")
-                        .font(.system(size: 11))
-                }
-                .buttonStyle(.plain)
-                .help("Settings")
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, 12)
-            .padding(.bottom, 8)
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+                .padding(.bottom, 8)
 
-            Divider()
+                Divider()
+            }
 
             // Content
             if appState.showingSettings {
                 SettingsView()
+                    .frame(minHeight: 400)
             } else if let error = appState.errorMessage {
                 errorView(error)
             } else if appState.runs.isEmpty && appState.isLoading {
@@ -158,4 +161,55 @@ struct MenuContentView: View {
         }
         .padding(30)
     }
+}
+
+#Preview("With Runs") {
+    let state = AppState()
+    state.isAuthenticated = true
+    state.username = "octocat"
+    state.runs = [
+        WorkflowRun(
+            id: 1, name: "CI", displayTitle: "Fix login bug",
+            status: "completed", conclusion: "success",
+            htmlUrl: "https://github.com/owner/repo/actions/runs/1",
+            headBranch: "main",
+            updatedAt: Date().addingTimeInterval(-300),
+            repositoryFullName: "owner/repo"
+        ),
+        WorkflowRun(
+            id: 2, name: "Tests", displayTitle: "Update dependencies",
+            status: "completed", conclusion: "failure",
+            htmlUrl: "https://github.com/owner/repo/actions/runs/2",
+            headBranch: "feature/auth",
+            updatedAt: Date().addingTimeInterval(-600),
+            repositoryFullName: "owner/other-repo"
+        ),
+        WorkflowRun(
+            id: 3, name: "Deploy", displayTitle: "Deploy to production",
+            status: "in_progress", conclusion: nil,
+            htmlUrl: "https://github.com/owner/repo/actions/runs/3",
+            headBranch: "main",
+            updatedAt: Date(),
+            repositoryFullName: "owner/repo"
+        ),
+    ]
+    return MenuContentView()
+        .environmentObject(state)
+}
+
+#Preview("Empty") {
+    let state = AppState()
+    state.isAuthenticated = true
+    state.username = "octocat"
+    return MenuContentView()
+        .environmentObject(state)
+}
+
+#Preview("Loading") {
+    let state = AppState()
+    state.isAuthenticated = true
+    state.username = "octocat"
+    state.isLoading = true
+    return MenuContentView()
+        .environmentObject(state)
 }

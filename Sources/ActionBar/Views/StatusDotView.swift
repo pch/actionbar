@@ -37,3 +37,27 @@ struct StatusDotView: View {
         }
     }
 }
+
+#Preview("Success") {
+    StatusDotView(status: .success)
+}
+
+#Preview("Failure") {
+    StatusDotView(status: .failure)
+}
+
+#Preview("Running") {
+    StatusDotView(status: .running)
+}
+
+#Preview("Queued") {
+    StatusDotView(status: .queued)
+}
+
+#Preview("Cancelled") {
+    StatusDotView(status: .cancelled)
+}
+
+#Preview("Unknown") {
+    StatusDotView(status: .unknown)
+}

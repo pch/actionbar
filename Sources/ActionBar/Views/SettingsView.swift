@@ -91,10 +91,21 @@ struct SettingsView: View {
                     Text("Repositories")
                         .font(.subheadline)
                     Spacer()
-                    if appState.isLoadingRepos {
-                        ProgressView()
-                            .controlSize(.small)
+                    Button(action: { appState.fetchAvailableRepos(force: true) }) {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.caption)
                     }
+                    .buttonStyle(.plain)
+                    .foregroundColor(.accentColor)
+                    .help("Refresh repository list")
+                    .opacity(appState.isLoadingRepos ? 0 : 1)
+                    .overlay {
+                        if appState.isLoadingRepos {
+                            ProgressView()
+                                .controlSize(.small)
+                        }
+                    }
+                    .disabled(appState.isLoadingRepos)
                 }
 
                 TextField("Search repos...", text: $searchText)
@@ -207,4 +218,17 @@ struct SettingsView: View {
             appState.snapshotSelectedRepos()
         }
     }
+}
+
+#Preview {
+    let state = AppState()
+    state.isAuthenticated = true
+    state.availableRepos = [
+        Repository(id: 1, fullName: "owner/first-repo", htmlUrl: "https://github.com/owner/first-repo"),
+        Repository(id: 2, fullName: "owner/second-repo", htmlUrl: "https://github.com/owner/second-repo"),
+        Repository(id: 3, fullName: "owner/third-repo", htmlUrl: "https://github.com/owner/third-repo"),
+    ]
+    state.selectedRepoNames = ["owner/first-repo", "owner/third-repo"]
+    return SettingsView()
+        .environmentObject(state)
 }
