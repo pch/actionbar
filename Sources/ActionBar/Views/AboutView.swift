@@ -7,15 +7,11 @@ struct AboutView: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            Text("Action Bar for GitHub")
+            Text("ActionBar")
                 .font(.headline)
 
             Text("Version \(appVersion)")
                 .font(.caption)
-                .foregroundColor(.secondary)
-
-            Text("Not affiliated with GitHub.")
-                .font(.caption2)
                 .foregroundColor(.secondary)
 
             Button("Website") {

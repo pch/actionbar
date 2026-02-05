@@ -5,7 +5,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     private var windowObserver: Any?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        NSApp.applicationIconImage = GitHubIcon.makeAppIcon()
         UNUserNotificationCenter.current().delegate = self
         NotificationService.requestPermission()
 

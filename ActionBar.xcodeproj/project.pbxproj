@@ -22,7 +22,7 @@
 		A10001000000000000000012 /* AboutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002000000000000000012 /* AboutView.swift */; };
 		A10001000000000000000013 /* MenuContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002000000000000000013 /* MenuContentView.swift */; };
 		A10001000000000000000014 /* RelativeTime.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002000000000000000014 /* RelativeTime.swift */; };
-		A10001000000000000000015 /* GitHubIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002000000000000000015 /* GitHubIcon.swift */; };
+		A10001000000000000000015 /* MenuBarIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002000000000000000015 /* MenuBarIcon.swift */; };
 		A10001000000000000000016 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A10002000000000000000016 /* Assets.xcassets */; };
 		A10001000000000000000017 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002000000000000000017 /* SettingsView.swift */; };
 /* End PBXBuildFile section */
@@ -44,7 +44,7 @@
 		A10002000000000000000012 /* AboutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutView.swift; sourceTree = "<group>"; };
 		A10002000000000000000013 /* MenuContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuContentView.swift; sourceTree = "<group>"; };
 		A10002000000000000000014 /* RelativeTime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelativeTime.swift; sourceTree = "<group>"; };
-		A10002000000000000000015 /* GitHubIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubIcon.swift; sourceTree = "<group>"; };
+		A10002000000000000000015 /* MenuBarIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarIcon.swift; sourceTree = "<group>"; };
 		A10002000000000000000016 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A10002000000000000000017 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		A10003000000000000000001 /* ActionBar.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ActionBar.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -147,7 +147,7 @@
 			isa = PBXGroup;
 			children = (
 				A10002000000000000000014 /* RelativeTime.swift */,
-				A10002000000000000000015 /* GitHubIcon.swift */,
+				A10002000000000000000015 /* MenuBarIcon.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -231,7 +231,7 @@
 				A10001000000000000000012 /* AboutView.swift in Sources */,
 				A10001000000000000000013 /* MenuContentView.swift in Sources */,
 				A10001000000000000000014 /* RelativeTime.swift in Sources */,
-				A10001000000000000000015 /* GitHubIcon.swift in Sources */,
+				A10001000000000000000015 /* MenuBarIcon.swift in Sources */,
 				A10001000000000000000017 /* SettingsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

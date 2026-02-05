@@ -21,12 +21,12 @@ struct SetupView: View {
 
     private var initialView: some View {
         Group {
-            Image(nsImage: GitHubIcon.makeMenuBarIcon())
+            Image(nsImage: MenuBarIcon.makeMenuBarIcon())
                 .resizable()
                 .aspectRatio(contentMode: .fit)
                 .frame(width: 32, height: 32)
 
-            Text("Action Bar for GitHub")
+            Text("ActionBar")
                 .font(.headline)
 
             Text("Monitor your GitHub Actions workflow runs.")
@@ -76,7 +76,7 @@ struct SetupView: View {
             Text("Install the App")
                 .font(.headline)
 
-            Text("Action Bar needs to be installed on your GitHub account to access workflow data.")
+            Text("ActionBar needs to be installed on your GitHub account to access workflow data.")
                 .font(.caption)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)

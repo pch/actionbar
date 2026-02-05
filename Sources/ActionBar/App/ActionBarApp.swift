@@ -26,8 +26,8 @@ struct MenuBarLabel: View {
 
     private func makeIcon() -> NSImage {
         let dotColor: NSColor? = appState.isAuthenticated && !appState.runs.isEmpty
-            ? GitHubIcon.statusColor(for: appState.overallStatus)
+            ? MenuBarIcon.statusColor(for: appState.overallStatus)
             : nil
-        return GitHubIcon.makeMenuBarIcon(statusDotColor: dotColor)
+        return MenuBarIcon.makeMenuBarIcon(statusDotColor: dotColor)
     }
 }
