@@ -93,6 +93,14 @@ struct WorkflowRun: Decodable, Identifiable, Hashable {
     }
 }
 
+// MARK: - Workflow Filter Mode
+
+enum WorkflowFilterMode: String, CaseIterable {
+    case off
+    case include
+    case exclude
+}
+
 // MARK: - Run Status
 
 enum RunStatus {

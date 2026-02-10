@@ -34,6 +34,7 @@ struct SettingsView: View {
                 Spacer()
                 Button("Done") {
                     appState.saveSelectedRepos()
+                    appState.saveWorkflowFilter()
                     appState.showingSettings = false
                     appState.refreshNow()
                 }
@@ -60,6 +61,42 @@ struct SettingsView: View {
                 }
                 .pickerStyle(.menu)
                 .fixedSize()
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+
+            Divider()
+
+            // Workflow filter
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text("Workflow filter")
+                        .font(.subheadline)
+                    Spacer()
+                    Picker("", selection: $appState.workflowFilterMode) {
+                        ForEach(WorkflowFilterMode.allCases, id: \.self) { mode in
+                            Text(mode.rawValue.capitalized).tag(mode)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .controlSize(.small)
+                    .fixedSize()
+                }
+
+                if appState.workflowFilterMode != .off {
+                    TextField("e.g. deploy, CI, build", text: $appState.workflowFilterText)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.caption)
+
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(appState.workflowFilterMode == .include
+                             ? "Only show workflows matching these names."
+                             : "Hide workflows matching these names.")
+                        Text("Comma-separated, case-insensitive substring match.")
+                    }
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 8)

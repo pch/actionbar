@@ -20,6 +20,8 @@ final class AppState: ObservableObject {
     @Published var needsInstallation = false
     @Published var isCheckingInstallation = false
     @Published var pollingInterval: TimeInterval = 30
+    @Published var workflowFilterMode: WorkflowFilterMode = .off
+    @Published var workflowFilterText: String = ""
 
     private let apiClient = GitHubAPIClient()
     private let oauthService = OAuthService()
@@ -32,6 +34,8 @@ final class AppState: ObservableObject {
 
     private static let selectedReposKey = "selectedRepositories"
     private static let pollingIntervalKey = "pollingInterval"
+    private static let workflowFilterModeKey = "workflowFilterMode"
+    private static let workflowFilterTextKey = "workflowFilterText"
 
     var hasRepoConfiguration: Bool {
         UserDefaults.standard.object(forKey: Self.selectedReposKey) != nil
@@ -45,6 +49,7 @@ final class AppState: ObservableObject {
     func start() {
         loadSelectedRepos()
         loadPollingInterval()
+        loadWorkflowFilter()
         guard let token = KeychainService.loadToken() else { return }
         isAuthenticated = true
         Task {
@@ -198,7 +203,11 @@ final class AppState: ObservableObject {
         availableRepos = []
         repoListIsCapped = false
         showingSettings = false
+        workflowFilterMode = .off
+        workflowFilterText = ""
         UserDefaults.standard.removeObject(forKey: Self.selectedReposKey)
+        UserDefaults.standard.removeObject(forKey: Self.workflowFilterModeKey)
+        UserDefaults.standard.removeObject(forKey: Self.workflowFilterTextKey)
     }
 
     func refreshNow() {
@@ -263,18 +272,20 @@ final class AppState: ObservableObject {
                 saveSelectedRepos()
             }
 
+            let filteredRuns = applyWorkflowFilter(to: newRuns)
+
             // Detect completions for notifications
             if hasLoadedOnce {
-                detectCompletions(newRuns: newRuns)
+                detectCompletions(newRuns: filteredRuns)
             }
 
             // Update state tracking
             previousRunStates = [:]
-            for run in newRuns {
+            for run in filteredRuns {
                 previousRunStates[run.id] = stateKey(for: run)
             }
 
-            runs = newRuns
+            runs = filteredRuns
             hasLoadedOnce = true
             if manageLoading { isLoading = false }
         } catch let error as GitHubAPIError {
@@ -331,6 +342,36 @@ final class AppState: ObservableObject {
 
     func resetReposToSnapshot() {
         selectedRepoNames = repoSelectionSnapshot
+    }
+
+    private func loadWorkflowFilter() {
+        if let modeRaw = UserDefaults.standard.string(forKey: Self.workflowFilterModeKey),
+           let mode = WorkflowFilterMode(rawValue: modeRaw) {
+            workflowFilterMode = mode
+        }
+        workflowFilterText = UserDefaults.standard.string(forKey: Self.workflowFilterTextKey) ?? ""
+    }
+
+    func saveWorkflowFilter() {
+        UserDefaults.standard.set(workflowFilterMode.rawValue, forKey: Self.workflowFilterModeKey)
+        UserDefaults.standard.set(workflowFilterText, forKey: Self.workflowFilterTextKey)
+    }
+
+    private func applyWorkflowFilter(to runs: [WorkflowRun]) -> [WorkflowRun] {
+        guard workflowFilterMode != .off else { return runs }
+
+        let patterns = workflowFilterText
+            .split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespaces).lowercased() }
+            .filter { !$0.isEmpty }
+
+        guard !patterns.isEmpty else { return runs }
+
+        return runs.filter { run in
+            let name = (run.name ?? "").lowercased()
+            let matches = patterns.contains { name.contains($0) }
+            return workflowFilterMode == .include ? matches : !matches
+        }
     }
 
     private func loadPollingInterval() {
