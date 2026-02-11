@@ -22,6 +22,7 @@ final class AppState: ObservableObject {
     @Published var pollingInterval: TimeInterval = 30
     @Published var workflowFilterMode: WorkflowFilterMode = .off
     @Published var workflowFilterText: String = ""
+    @Published var maxRunsPerRepo: Int = 5
 
     private let apiClient = GitHubAPIClient()
     private let oauthService = OAuthService()
@@ -36,6 +37,7 @@ final class AppState: ObservableObject {
     private static let pollingIntervalKey = "pollingInterval"
     private static let workflowFilterModeKey = "workflowFilterMode"
     private static let workflowFilterTextKey = "workflowFilterText"
+    private static let maxRunsPerRepoKey = "maxRunsPerRepo"
 
     var hasRepoConfiguration: Bool {
         UserDefaults.standard.object(forKey: Self.selectedReposKey) != nil
@@ -50,6 +52,7 @@ final class AppState: ObservableObject {
         loadSelectedRepos()
         loadPollingInterval()
         loadWorkflowFilter()
+        loadMaxRunsPerRepo()
         guard let token = KeychainService.loadToken() else { return }
         isAuthenticated = true
         Task {
@@ -205,9 +208,11 @@ final class AppState: ObservableObject {
         showingSettings = false
         workflowFilterMode = .off
         workflowFilterText = ""
+        maxRunsPerRepo = 5
         UserDefaults.standard.removeObject(forKey: Self.selectedReposKey)
         UserDefaults.standard.removeObject(forKey: Self.workflowFilterModeKey)
         UserDefaults.standard.removeObject(forKey: Self.workflowFilterTextKey)
+        UserDefaults.standard.removeObject(forKey: Self.maxRunsPerRepoKey)
     }
 
     func refreshNow() {
@@ -272,7 +277,7 @@ final class AppState: ObservableObject {
                 saveSelectedRepos()
             }
 
-            let filteredRuns = applyWorkflowFilter(to: newRuns)
+            let filteredRuns = applyMaxRunsPerRepo(to: applyWorkflowFilter(to: newRuns))
 
             // Detect completions for notifications
             if hasLoadedOnce {
@@ -371,6 +376,25 @@ final class AppState: ObservableObject {
             let name = (run.name ?? "").lowercased()
             let matches = patterns.contains { name.contains($0) }
             return workflowFilterMode == .include ? matches : !matches
+        }
+    }
+
+    private func loadMaxRunsPerRepo() {
+        let saved = UserDefaults.standard.integer(forKey: Self.maxRunsPerRepoKey)
+        maxRunsPerRepo = saved > 0 ? saved : 5
+    }
+
+    func saveMaxRunsPerRepo() {
+        UserDefaults.standard.set(maxRunsPerRepo, forKey: Self.maxRunsPerRepoKey)
+    }
+
+    private func applyMaxRunsPerRepo(to runs: [WorkflowRun]) -> [WorkflowRun] {
+        var countsByRepo: [String: Int] = [:]
+        return runs.filter { run in
+            let count = countsByRepo[run.repositoryFullName, default: 0]
+            guard count < maxRunsPerRepo else { return false }
+            countsByRepo[run.repositoryFullName] = count + 1
+            return true
         }
     }
 

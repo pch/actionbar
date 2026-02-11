@@ -35,6 +35,7 @@ struct SettingsView: View {
                 Button("Done") {
                     appState.saveSelectedRepos()
                     appState.saveWorkflowFilter()
+                    appState.saveMaxRunsPerRepo()
                     appState.showingSettings = false
                     appState.refreshNow()
                 }
@@ -61,6 +62,27 @@ struct SettingsView: View {
                 }
                 .pickerStyle(.menu)
                 .fixedSize()
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+
+            // Max runs per repo
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text("Max runs per repo")
+                        .font(.subheadline)
+                    Spacer()
+                    Picker("", selection: $appState.maxRunsPerRepo) {
+                        ForEach(1...10, id: \.self) { n in
+                            Text("\(n)").tag(n)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .fixedSize()
+                }
+                Text("Limit how many recent runs are shown for each repository.")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 8)

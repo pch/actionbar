@@ -144,7 +144,7 @@ actor GitHubAPIClient {
         }
 
         let sortedRuns = filteredRuns.sorted { $0.updatedAt > $1.updatedAt }
-        return Array(sortedRuns.prefix(20))
+        return Array(sortedRuns.prefix(50))
     }
 
     // MARK: - Installations
@@ -232,7 +232,7 @@ actor GitHubAPIClient {
     }
 
     private func fetchRunsForRepo(repo: String, token: String, actor: String? = nil) async throws -> [WorkflowRun] {
-        var queryItems = [URLQueryItem(name: "per_page", value: "5")]
+        var queryItems = [URLQueryItem(name: "per_page", value: "10")]
         if let actor {
             queryItems.append(URLQueryItem(name: "actor", value: actor))
         }
