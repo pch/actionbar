@@ -66,6 +66,8 @@ struct SettingsView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
 
+            Divider()
+
             // Max runs per repo
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
