@@ -43,6 +43,7 @@ struct WorkflowRun: Decodable, Identifiable, Hashable {
     let event: String?
     let htmlUrl: String
     let headBranch: String?
+    let createdAt: Date
     let updatedAt: Date
     let repositoryFullName: String
 
@@ -55,6 +56,7 @@ struct WorkflowRun: Decodable, Identifiable, Hashable {
         case event
         case htmlUrl = "html_url"
         case headBranch = "head_branch"
+        case createdAt = "created_at"
         case updatedAt = "updated_at"
         case repository
     }
@@ -73,13 +75,14 @@ struct WorkflowRun: Decodable, Identifiable, Hashable {
         event = try container.decodeIfPresent(String.self, forKey: .event)
         htmlUrl = try container.decode(String.self, forKey: .htmlUrl)
         headBranch = try container.decodeIfPresent(String.self, forKey: .headBranch)
+        createdAt = try container.decode(Date.self, forKey: .createdAt)
         updatedAt = try container.decode(Date.self, forKey: .updatedAt)
         let repoContainer = try container.nestedContainer(keyedBy: RepositoryCodingKeys.self, forKey: .repository)
         repositoryFullName = try repoContainer.decode(String.self, forKey: .fullName)
     }
 
     init(id: Int, name: String?, displayTitle: String?, status: String?, conclusion: String?,
-         event: String? = nil, htmlUrl: String, headBranch: String?, updatedAt: Date, repositoryFullName: String) {
+         event: String? = nil, htmlUrl: String, headBranch: String?, createdAt: Date = Date(), updatedAt: Date, repositoryFullName: String) {
         self.id = id
         self.name = name
         self.displayTitle = displayTitle
@@ -88,6 +91,7 @@ struct WorkflowRun: Decodable, Identifiable, Hashable {
         self.event = event
         self.htmlUrl = htmlUrl
         self.headBranch = headBranch
+        self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.repositoryFullName = repositoryFullName
     }

@@ -30,6 +30,8 @@ actor GitHubAPIClient {
 
     init() {
         let config = URLSessionConfiguration.default
+        config.requestCachePolicy = .reloadIgnoringLocalCacheData
+        config.urlCache = nil
         config.httpAdditionalHeaders = [
             "Accept": "application/vnd.github+json",
             "X-GitHub-Api-Version": "2022-11-28",
@@ -143,7 +145,7 @@ actor GitHubAPIClient {
             return !excludedEvents.contains(event)
         }
 
-        let sortedRuns = filteredRuns.sorted { $0.updatedAt > $1.updatedAt }
+        let sortedRuns = filteredRuns.sorted { $0.createdAt > $1.createdAt }
         return Array(sortedRuns.prefix(50))
     }
 
@@ -232,7 +234,7 @@ actor GitHubAPIClient {
     }
 
     private func fetchRunsForRepo(repo: String, token: String, actor: String? = nil) async throws -> [WorkflowRun] {
-        var queryItems = [URLQueryItem(name: "per_page", value: "10")]
+        var queryItems = [URLQueryItem(name: "per_page", value: "20")]
         if let actor {
             queryItems.append(URLQueryItem(name: "actor", value: actor))
         }
