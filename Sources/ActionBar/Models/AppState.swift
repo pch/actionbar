@@ -26,7 +26,7 @@ final class AppState: ObservableObject {
 
     private let apiClient = GitHubAPIClient()
     private let oauthService = OAuthService()
-    private var pollTimer: Timer?
+    private var pollTask: Task<Void, Never>?
     private var installCheckTask: Task<Void, Never>?
     private var oauthTask: Task<Void, Never>?
     private var previousRunStates: [Int: String] = [:] // run.id -> status/conclusion
@@ -233,22 +233,22 @@ final class AppState: ObservableObject {
 
     private func startPolling() {
         stopPolling()
-        fetchRunsInitial()
-        pollTimer = Timer.scheduledTimer(withTimeInterval: pollingInterval, repeats: true) { [weak self] _ in
-            guard let self else { return }
-            Task { @MainActor in
-                await self.fetchRuns()
+        pollTask = Task {
+            await fetchRuns()
+            while !Task.isCancelled {
+                let deadline = Date().addingTimeInterval(pollingInterval)
+                while Date() < deadline, !Task.isCancelled {
+                    try? await Task.sleep(nanoseconds: 1_000_000_000)
+                }
+                guard !Task.isCancelled else { break }
+                await fetchRuns()
             }
         }
     }
 
     private func stopPolling() {
-        pollTimer?.invalidate()
-        pollTimer = nil
-    }
-
-    private func fetchRunsInitial() {
-        Task { await fetchRuns() }
+        pollTask?.cancel()
+        pollTask = nil
     }
 
     private func fetchRuns(manageLoading: Bool = true) async {
@@ -300,6 +300,9 @@ final class AppState: ObservableObject {
                 errorMessage = error.localizedDescription
                 if manageLoading { isLoading = false }
             }
+        } catch is CancellationError {
+            // Task was cancelled (e.g. polling restart) — don't surface to UI.
+            if manageLoading { isLoading = false }
         } catch {
             errorMessage = error.localizedDescription
             if manageLoading { isLoading = false }
