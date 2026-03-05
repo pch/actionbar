@@ -104,6 +104,9 @@ struct MenuContentView: View {
         }
         .frame(width: 340)
         .onReceive(tickTimer) { now = $0 }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
+            now = Date()
+        }
     }
 
     private var runsList: some View {
