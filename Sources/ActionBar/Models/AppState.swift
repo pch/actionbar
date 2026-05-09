@@ -194,6 +194,9 @@ final class AppState: ObservableObject {
         cancelLogin()
         stopPolling()
         stopInstallCheckTimer()
+        Task {
+            await apiClient.clearConditionalCache()
+        }
         KeychainService.deleteToken()
         isAuthenticated = false
         needsInstallation = false

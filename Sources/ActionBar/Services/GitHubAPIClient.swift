@@ -27,6 +27,12 @@ actor GitHubAPIClient {
     private let baseURL = "https://api.github.com"
     private let session: URLSession
     private let decoder: JSONDecoder
+    private var workflowRunsCache: [String: CachedWorkflowRunsResponse] = [:]
+
+    private struct CachedWorkflowRunsResponse {
+        let etag: String
+        let runs: [WorkflowRun]
+    }
 
     init() {
         let config = URLSessionConfiguration.default
@@ -40,6 +46,10 @@ actor GitHubAPIClient {
 
         self.decoder = JSONDecoder()
         self.decoder.dateDecodingStrategy = .iso8601
+    }
+
+    func clearConditionalCache() {
+        workflowRunsCache.removeAll()
     }
 
     // MARK: - Token Validation
@@ -239,11 +249,16 @@ actor GitHubAPIClient {
             queryItems.append(URLQueryItem(name: "actor", value: actor))
         }
 
-        let request = makeRequest(
+        var request = makeRequest(
             path: "/repos/\(repo)/actions/runs",
             queryItems: queryItems,
             token: token
         )
+        let cacheKey = request.url?.absoluteString
+
+        if let cacheKey, let cached = workflowRunsCache[cacheKey] {
+            request.setValue(cached.etag, forHTTPHeaderField: "If-None-Match")
+        }
 
         let (data, response) = try await perform(request)
 
@@ -259,6 +274,10 @@ actor GitHubAPIClient {
             throw GitHubAPIError.rateLimited
         }
 
+        if httpResponse.statusCode == 304, let cacheKey, let cached = workflowRunsCache[cacheKey] {
+            return cached.runs
+        }
+
         if httpResponse.statusCode == 404 || httpResponse.statusCode == 409 {
             // Actions disabled or no runs available.
             return []
@@ -270,6 +289,14 @@ actor GitHubAPIClient {
 
         do {
             let runsResponse = try decoder.decode(WorkflowRunsResponse.self, from: data)
+            if let cacheKey, let etag = httpResponse.value(forHTTPHeaderField: "ETag") {
+                workflowRunsCache[cacheKey] = CachedWorkflowRunsResponse(
+                    etag: etag,
+                    runs: runsResponse.workflowRuns
+                )
+            } else if let cacheKey {
+                workflowRunsCache.removeValue(forKey: cacheKey)
+            }
             return runsResponse.workflowRuns
         } catch {
             return []
