@@ -24,6 +24,7 @@ final class AppState: ObservableObject {
     @Published var workflowFilterText: String = ""
     @Published var maxRunsPerRepo: Int = 5
     @Published var includeRunsFromOtherUsers = false
+    @Published private(set) var overallStatus: RunStatus = .unknown
 
     private let apiClient = GitHubAPIClient()
     private let oauthService = OAuthService()
@@ -43,11 +44,6 @@ final class AppState: ObservableObject {
 
     var hasRepoConfiguration: Bool {
         UserDefaults.standard.object(forKey: Self.selectedReposKey) != nil
-    }
-
-    var overallStatus: RunStatus {
-        guard let newest = runs.first else { return .unknown }
-        return RunStatus(from: newest)
     }
 
     func start() {
@@ -203,6 +199,7 @@ final class AppState: ObservableObject {
         KeychainService.deleteToken()
         isAuthenticated = false
         needsInstallation = false
+        overallStatus = .unknown
         runs = []
         username = nil
         previousRunStates = [:]
@@ -286,7 +283,8 @@ final class AppState: ObservableObject {
                 saveSelectedRepos()
             }
 
-            let filteredRuns = applyMaxRunsPerRepo(to: applyWorkflowFilter(to: newRuns))
+            let workflowFilteredRuns = applyWorkflowFilter(to: newRuns)
+            let filteredRuns = applyMaxRunsPerRepo(to: workflowFilteredRuns)
 
             // Detect completions for notifications
             if hasLoadedOnce {
@@ -299,6 +297,7 @@ final class AppState: ObservableObject {
                 previousRunStates[run.id] = stateKey(for: run)
             }
 
+            overallStatus = menuBarStatus(for: workflowFilteredRuns)
             runs = filteredRuns
             hasLoadedOnce = true
             if manageLoading { isLoading = false }
@@ -389,6 +388,29 @@ final class AppState: ObservableObject {
             let matches = patterns.contains { name.contains($0) }
             return workflowFilterMode == .include ? matches : !matches
         }
+    }
+
+    private func menuBarStatus(for runs: [WorkflowRun]) -> RunStatus {
+        let hasActiveRun = runs.contains { run in
+            switch RunStatus(from: run) {
+            case .running, .queued:
+                return true
+            default:
+                return false
+            }
+        }
+
+        if hasActiveRun {
+            return .running
+        }
+
+        guard let lastFinishedRun = runs
+            .filter({ $0.status == "completed" })
+            .max(by: { $0.updatedAt < $1.updatedAt }) else {
+            return .unknown
+        }
+
+        return RunStatus(from: lastFinishedRun)
     }
 
     private func loadMaxRunsPerRepo() {
