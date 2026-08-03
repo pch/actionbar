@@ -3,6 +3,7 @@ import SwiftUI
 struct WorkflowRowView: View {
     let run: WorkflowRun
     var now: Date = Date()
+    var showsTriggeringActor = false
 
     @State private var isHovered = false
 
@@ -20,10 +21,16 @@ struct WorkflowRowView: View {
                         .font(.system(size: 10))
                         .foregroundColor(.secondary)
 
-                    if let branch = run.headBranch {
-                        Text("·")
+                    if showsTriggeringActor, let login = run.triggeringActorLogin {
+                        metadataSeparator
+                        Text("@\(login)")
                             .font(.system(size: 10))
                             .foregroundColor(.secondary)
+                            .lineLimit(1)
+                    }
+
+                    if let branch = run.headBranch {
+                        metadataSeparator
                         Text(branch)
                             .font(.system(size: 10, design: .monospaced))
                             .foregroundColor(.secondary)
@@ -57,6 +64,12 @@ struct WorkflowRowView: View {
         }
     }
 
+    private var metadataSeparator: some View {
+        Text("·")
+            .font(.system(size: 10))
+            .foregroundColor(.secondary)
+    }
+
     private var repoName: String {
         // Show only repo name (without owner) to save space
         if let slashIndex = run.repositoryFullName.firstIndex(of: "/") {
@@ -77,8 +90,10 @@ struct WorkflowRowView: View {
             htmlUrl: "https://github.com/owner/repo/actions/runs/1",
             headBranch: "main",
             updatedAt: Date().addingTimeInterval(-300),
-            repositoryFullName: "owner/repo"
-        )
+            repositoryFullName: "owner/repo",
+            triggeringActorLogin: "octocat"
+        ),
+        showsTriggeringActor: true
     )
 }
 

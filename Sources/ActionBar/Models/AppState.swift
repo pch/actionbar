@@ -23,6 +23,7 @@ final class AppState: ObservableObject {
     @Published var workflowFilterMode: WorkflowFilterMode = .off
     @Published var workflowFilterText: String = ""
     @Published var maxRunsPerRepo: Int = 5
+    @Published var includeRunsFromOtherUsers = false
 
     private let apiClient = GitHubAPIClient()
     private let oauthService = OAuthService()
@@ -38,6 +39,7 @@ final class AppState: ObservableObject {
     private static let workflowFilterModeKey = "workflowFilterMode"
     private static let workflowFilterTextKey = "workflowFilterText"
     private static let maxRunsPerRepoKey = "maxRunsPerRepo"
+    private static let includeRunsFromOtherUsersKey = "includeRunsFromOtherUsers"
 
     var hasRepoConfiguration: Bool {
         UserDefaults.standard.object(forKey: Self.selectedReposKey) != nil
@@ -53,6 +55,7 @@ final class AppState: ObservableObject {
         loadPollingInterval()
         loadWorkflowFilter()
         loadMaxRunsPerRepo()
+        loadIncludeRunsFromOtherUsers()
         guard let token = KeychainService.loadToken() else { return }
         isAuthenticated = true
         Task {
@@ -212,10 +215,12 @@ final class AppState: ObservableObject {
         workflowFilterMode = .off
         workflowFilterText = ""
         maxRunsPerRepo = 5
+        includeRunsFromOtherUsers = false
         UserDefaults.standard.removeObject(forKey: Self.selectedReposKey)
         UserDefaults.standard.removeObject(forKey: Self.workflowFilterModeKey)
         UserDefaults.standard.removeObject(forKey: Self.workflowFilterTextKey)
         UserDefaults.standard.removeObject(forKey: Self.maxRunsPerRepoKey)
+        UserDefaults.standard.removeObject(forKey: Self.includeRunsFromOtherUsersKey)
     }
 
     func refreshNow() {
@@ -272,7 +277,8 @@ final class AppState: ObservableObject {
         do {
             let usingFallback = !hasRepoConfiguration || selectedRepoNames.isEmpty
             let repos = usingFallback ? nil : Array(selectedRepoNames)
-            let newRuns = try await apiClient.fetchRecentRuns(token: token, actor: username, repos: repos)
+            let actor = includeRunsFromOtherUsers ? nil : username
+            let newRuns = try await apiClient.fetchRecentRuns(token: token, actor: actor, repos: repos)
 
             if usingFallback && !newRuns.isEmpty {
                 let repoNames = Set(newRuns.map(\.repositoryFullName))
@@ -392,6 +398,14 @@ final class AppState: ObservableObject {
 
     func saveMaxRunsPerRepo() {
         UserDefaults.standard.set(maxRunsPerRepo, forKey: Self.maxRunsPerRepoKey)
+    }
+
+    private func loadIncludeRunsFromOtherUsers() {
+        includeRunsFromOtherUsers = UserDefaults.standard.bool(forKey: Self.includeRunsFromOtherUsersKey)
+    }
+
+    func saveIncludeRunsFromOtherUsers() {
+        UserDefaults.standard.set(includeRunsFromOtherUsers, forKey: Self.includeRunsFromOtherUsersKey)
     }
 
     private func applyMaxRunsPerRepo(to runs: [WorkflowRun]) -> [WorkflowRun] {

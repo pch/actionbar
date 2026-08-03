@@ -113,7 +113,11 @@ struct MenuContentView: View {
         ScrollView {
             LazyVStack(spacing: 0) {
                 ForEach(appState.runs) { run in
-                    WorkflowRowView(run: run, now: now)
+                    WorkflowRowView(
+                        run: run,
+                        now: now,
+                        showsTriggeringActor: appState.includeRunsFromOtherUsers
+                    )
 
                     if run.id != appState.runs.last?.id {
                         Divider()

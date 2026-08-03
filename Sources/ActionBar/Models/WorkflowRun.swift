@@ -46,6 +46,7 @@ struct WorkflowRun: Decodable, Identifiable, Hashable {
     let createdAt: Date
     let updatedAt: Date
     let repositoryFullName: String
+    let triggeringActorLogin: String?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -59,10 +60,16 @@ struct WorkflowRun: Decodable, Identifiable, Hashable {
         case createdAt = "created_at"
         case updatedAt = "updated_at"
         case repository
+        case actor
+        case triggeringActor = "triggering_actor"
     }
 
     enum RepositoryCodingKeys: String, CodingKey {
         case fullName = "full_name"
+    }
+
+    private struct Actor: Decodable {
+        let login: String
     }
 
     init(from decoder: Decoder) throws {
@@ -79,10 +86,14 @@ struct WorkflowRun: Decodable, Identifiable, Hashable {
         updatedAt = try container.decode(Date.self, forKey: .updatedAt)
         let repoContainer = try container.nestedContainer(keyedBy: RepositoryCodingKeys.self, forKey: .repository)
         repositoryFullName = try repoContainer.decode(String.self, forKey: .fullName)
+        let actor = try container.decodeIfPresent(Actor.self, forKey: .actor)
+        let triggeringActor = try container.decodeIfPresent(Actor.self, forKey: .triggeringActor)
+        triggeringActorLogin = triggeringActor?.login ?? actor?.login
     }
 
     init(id: Int, name: String?, displayTitle: String?, status: String?, conclusion: String?,
-         event: String? = nil, htmlUrl: String, headBranch: String?, createdAt: Date = Date(), updatedAt: Date, repositoryFullName: String) {
+         event: String? = nil, htmlUrl: String, headBranch: String?, createdAt: Date = Date(), updatedAt: Date,
+         repositoryFullName: String, triggeringActorLogin: String? = nil) {
         self.id = id
         self.name = name
         self.displayTitle = displayTitle
@@ -94,6 +105,7 @@ struct WorkflowRun: Decodable, Identifiable, Hashable {
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.repositoryFullName = repositoryFullName
+        self.triggeringActorLogin = triggeringActorLogin
     }
 }
 

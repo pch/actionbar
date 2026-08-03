@@ -36,6 +36,7 @@ struct SettingsView: View {
                     appState.saveSelectedRepos()
                     appState.saveWorkflowFilter()
                     appState.saveMaxRunsPerRepo()
+                    appState.saveIncludeRunsFromOtherUsers()
                     appState.showingSettings = false
                     appState.refreshNow()
                 }
@@ -86,6 +87,21 @@ struct SettingsView: View {
                     .font(.caption2)
                     .foregroundColor(.secondary)
             }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+
+            Divider()
+
+            // Workflow run actors
+            VStack(alignment: .leading, spacing: 4) {
+                Toggle("Include runs from other users", isOn: $appState.includeRunsFromOtherUsers)
+                    .toggleStyle(.checkbox)
+                    .font(.subheadline)
+                Text("Show recent workflow runs from anyone in the selected repositories.")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
 
