@@ -290,6 +290,7 @@ struct SettingsView: View {
                 }
             }
             .frame(maxHeight: 250)
+            .clipped()
         }
         .onAppear {
             appState.snapshotSelectedRepos()

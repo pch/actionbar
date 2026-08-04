@@ -54,7 +54,7 @@ struct MenuContentView: View {
             // Content
             if appState.showingSettings {
                 SettingsView()
-                    .frame(minHeight: 400)
+                    .frame(minHeight: 520)
             } else if let error = appState.errorMessage {
                 errorView(error)
             } else if appState.runs.isEmpty && appState.isLoading {
