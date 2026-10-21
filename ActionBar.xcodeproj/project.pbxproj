@@ -29,6 +29,7 @@
 		A10001000000000000000019 /* UpdaterService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002000000000000000019 /* UpdaterService.swift */; };
 /* End PBXBuildFile section */
 
+
 /* Begin PBXFileReference section */
 		24E6B8522F2D684B00884177 /* MyIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = MyIcon.icon; sourceTree = "<group>"; };
 		A10002000000000000000001 /* ActionBarApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionBarApp.swift; sourceTree = "<group>"; };
@@ -369,6 +370,10 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Resources/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
 				INFOPLIST_KEY_CFBundleDisplayName = ActionBar;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				INFOPLIST_KEY_LSUIElement = YES;
@@ -395,6 +400,10 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Resources/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
 				INFOPLIST_KEY_CFBundleDisplayName = ActionBar;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				INFOPLIST_KEY_LSUIElement = YES;
