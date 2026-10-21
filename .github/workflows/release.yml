@@ -3,8 +3,8 @@ name: Release
 # Push a tag like `v1.8` to build, sign, notarize and publish a release.
 #
 # Required repository secrets:
-#   APPLE_CERTIFICATE_P12           Base64-encoded "Developer ID Application" certificate (.p12)
-#   APPLE_CERTIFICATE_PASSWORD      Password for the .p12 file
+#   DEVELOPER_ID_CERT_P12           Base64-encoded "Developer ID Application" certificate (.p12)
+#   DEVELOPER_ID_CERT_PASSWORD      Password for the .p12 file
 #   APPLE_ID                        Apple ID email used for notarization
 #   APPLE_APP_PASSWORD              App-specific password for that Apple ID
 #   APPLE_TEAM_ID                   Apple Developer Team ID
@@ -44,8 +44,8 @@ jobs:
 
       - name: Import signing certificate
         env:
-          CERT_P12: ${{ secrets.APPLE_CERTIFICATE_P12 }}
-          CERT_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          CERT_P12: ${{ secrets.DEVELOPER_ID_CERT_P12 }}
+          CERT_PASSWORD: ${{ secrets.DEVELOPER_ID_CERT_PASSWORD }}
         run: |
           KEYCHAIN_PASSWORD="$(uuidgen)"
           echo "$CERT_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"

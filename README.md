@@ -57,8 +57,8 @@ It needs these repository secrets:
 
 | Secret | Value |
 | --- | --- |
-| `APPLE_CERTIFICATE_P12` | "Developer ID Application" certificate exported from Keychain Access as `.p12`, base64-encoded |
-| `APPLE_CERTIFICATE_PASSWORD` | Password for the `.p12` |
+| `DEVELOPER_ID_CERT_P12` | "Developer ID Application" certificate exported from Keychain Access as `.p12`, base64-encoded |
+| `DEVELOPER_ID_CERT_PASSWORD` | Password for the `.p12` |
 | `APPLE_ID` | Apple ID email used for notarization |
 | `APPLE_APP_PASSWORD` | [App-specific password](https://support.apple.com/en-us/102654) for that Apple ID |
 | `APPLE_TEAM_ID` | Apple Developer Team ID |
