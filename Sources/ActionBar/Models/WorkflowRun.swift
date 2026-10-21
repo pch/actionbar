@@ -153,6 +153,13 @@ extension Array where Element == WorkflowRun {
         }
     }
 
+    /// Runs that have completed since they were last seen queued or in progress.
+    func newlyCompleted(since previousStatuses: [Int: RunStatus]) -> [WorkflowRun] {
+        filter { run in
+            run.status == "completed" && previousStatuses[run.id]?.isActive == true
+        }
+    }
+
     /// Running if anything is in flight, otherwise the outcome of the most recently finished run.
     var overallStatus: RunStatus {
         if contains(where: { RunStatus(from: $0).isActive }) {

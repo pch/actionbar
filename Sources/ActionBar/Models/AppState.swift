@@ -26,7 +26,7 @@ final class AppState {
     @ObservationIgnored private var pollTask: Task<Void, Never>?
     @ObservationIgnored private var installCheckTask: Task<Void, Never>?
     @ObservationIgnored private var oauthTask: Task<Void, Never>?
-    @ObservationIgnored private var previousRunStatuses: [Int: String] = [:] // run.id -> run.status
+    @ObservationIgnored private var previousRunStatuses: [Int: RunStatus] = [:] // run.id -> status
     @ObservationIgnored private var hasLoadedOnce = false
     @ObservationIgnored private var isFetchingRuns = false
 
@@ -247,11 +247,13 @@ final class AppState {
             let visibleRuns = workflowFilteredRuns.limited(toRunsPerRepo: settings.maxRunsPerRepo)
 
             if hasLoadedOnce {
-                notifyCompletedRuns(in: visibleRuns)
+                for run in visibleRuns.newlyCompleted(since: previousRunStatuses) {
+                    NotificationService.sendCompletionNotification(run: run)
+                }
             }
             previousRunStatuses = [:]
             for run in visibleRuns {
-                previousRunStatuses[run.id] = run.status
+                previousRunStatuses[run.id] = RunStatus(from: run)
             }
 
             overallStatus = workflowFilteredRuns.overallStatus
@@ -266,15 +268,6 @@ final class AppState {
         }
 
         if manageLoading { isLoading = false }
-    }
-
-    /// Notifies about runs that were queued or in progress on the previous fetch and have now completed.
-    private func notifyCompletedRuns(in newRuns: [WorkflowRun]) {
-        for run in newRuns where run.status == "completed" {
-            if let previousStatus = previousRunStatuses[run.id], ["in_progress", "queued"].contains(previousStatus) {
-                NotificationService.sendCompletionNotification(run: run)
-            }
-        }
     }
 
     // MARK: - Repositories
