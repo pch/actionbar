@@ -29,6 +29,7 @@
 		A10001000000000000000019 /* UpdaterService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002000000000000000019 /* UpdaterService.swift */; };
 		A10001000000000000000021 /* GitHubModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002000000000000000021 /* GitHubModels.swift */; };
 		A10001000000000000000022 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002000000000000000022 /* Components.swift */; };
+		A10001000000000000000023 /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002000000000000000023 /* SettingsStore.swift */; };
 /* End PBXBuildFile section */
 
 
@@ -56,6 +57,7 @@
 		A10002000000000000000019 /* UpdaterService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdaterService.swift; sourceTree = "<group>"; };
 		A10002000000000000000021 /* GitHubModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubModels.swift; sourceTree = "<group>"; };
 		A10002000000000000000022 /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
+		A10002000000000000000023 /* SettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsStore.swift; sourceTree = "<group>"; };
 		A10002000000000000000020 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -117,6 +119,7 @@
 				A10002000000000000000003 /* WorkflowRun.swift */,
 				A10002000000000000000004 /* AppState.swift */,
 				A10002000000000000000021 /* GitHubModels.swift */,
+				A10002000000000000000023 /* SettingsStore.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -256,6 +259,7 @@
 				A10001000000000000000017 /* SettingsView.swift in Sources */,
 				A10001000000000000000021 /* GitHubModels.swift in Sources */,
 				A10001000000000000000022 /* Components.swift in Sources */,
+				A10001000000000000000023 /* SettingsStore.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

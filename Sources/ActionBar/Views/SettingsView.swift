@@ -1,9 +1,12 @@
 import SwiftUI
 
 struct SettingsView: View {
-    @EnvironmentObject private var appState: AppState
+    @Bindable var settings: SettingsStore
+
+    @Environment(AppState.self) private var appState
     @Environment(\.openURL) private var openURL
     @State private var searchText = ""
+    @State private var repoSelectionSnapshot: Set<String> = []
     @State private var showSelectAllWarning = false
 
     /// Selecting more repos than this at once asks for confirmation, since each one costs an API call per refresh.
@@ -44,7 +47,7 @@ struct SettingsView: View {
             repositoryList
         }
         .onAppear {
-            appState.snapshotSelectedRepos()
+            repoSelectionSnapshot = settings.savedSelectedRepoNames
         }
     }
 
@@ -54,7 +57,7 @@ struct SettingsView: View {
                 .font(.headline)
             Spacer()
             Button("Done") {
-                appState.saveSettings()
+                settings.save()
                 appState.showingSettings = false
                 appState.refreshNow()
             }
@@ -71,7 +74,7 @@ struct SettingsView: View {
                 .font(.subheadline)
             Spacer()
             Picker("Polling interval", selection: Binding(
-                get: { appState.pollingInterval },
+                get: { settings.pollingInterval },
                 set: { appState.updatePollingInterval($0) }
             )) {
                 ForEach(Self.intervalOptions, id: \.value) { option in
@@ -91,7 +94,7 @@ struct SettingsView: View {
                 Text("Max runs per repo")
                     .font(.subheadline)
                 Spacer()
-                Picker("Max runs per repo", selection: $appState.maxRunsPerRepo) {
+                Picker("Max runs per repo", selection: $settings.maxRunsPerRepo) {
                     ForEach(1...10, id: \.self) { n in
                         Text("\(n)").tag(n)
                     }
@@ -109,7 +112,7 @@ struct SettingsView: View {
 
     private var otherUsersSection: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Toggle("Include runs from other users", isOn: $appState.includeRunsFromOtherUsers)
+            Toggle("Include runs from other users", isOn: $settings.includeRunsFromOtherUsers)
                 .toggleStyle(.checkbox)
                 .font(.subheadline)
             Text("Show recent workflow runs from anyone in the selected repositories.")
@@ -126,7 +129,7 @@ struct SettingsView: View {
                 Text("Workflow filter")
                     .font(.subheadline)
                 Spacer()
-                Picker("Workflow filter", selection: $appState.workflowFilterMode) {
+                Picker("Workflow filter", selection: $settings.workflowFilterMode) {
                     ForEach(WorkflowFilterMode.allCases, id: \.self) { mode in
                         Text(mode.rawValue.capitalized).tag(mode)
                     }
@@ -137,13 +140,13 @@ struct SettingsView: View {
                 .fixedSize()
             }
 
-            if appState.workflowFilterMode != .off {
-                TextField("e.g. deploy, CI, build", text: $appState.workflowFilterText)
+            if settings.workflowFilterMode != .off {
+                TextField("e.g. deploy, CI, build", text: $settings.workflowFilterText)
                     .textFieldStyle(.roundedBorder)
                     .font(.caption)
 
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(appState.workflowFilterMode == .include
+                    Text(settings.workflowFilterMode == .include
                          ? "Only show workflows matching these names."
                          : "Hide workflows matching these names.")
                     Text("Comma-separated, case-insensitive substring match.")
@@ -195,7 +198,7 @@ struct SettingsView: View {
                 .font(.caption)
 
             HStack {
-                Text("\(appState.selectedRepoNames.count) selected")
+                Text("\(settings.selectedRepoNames.count) selected")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()
@@ -203,21 +206,21 @@ struct SettingsView: View {
                     if filteredRepos.count > Self.selectAllWarningThreshold {
                         showSelectAllWarning = true
                     } else {
-                        appState.selectAllRepos(filteredRepos.map(\.fullName))
+                        settings.selectAllRepos(filteredRepos.map(\.fullName))
                     }
                 }
                 .textButtonStyle(.accentColor)
                 Button("None") {
                     showSelectAllWarning = false
-                    appState.deselectAllRepos()
+                    settings.deselectAllRepos()
                 }
                 .textButtonStyle(.accentColor)
                 Button("Reset") {
                     showSelectAllWarning = false
-                    appState.resetReposToSnapshot()
+                    settings.selectedRepoNames = repoSelectionSnapshot
                 }
                 .textButtonStyle(.accentColor)
-                .disabled(appState.selectedRepoNames == appState.repoSelectionSnapshot)
+                .disabled(settings.selectedRepoNames == repoSelectionSnapshot)
             }
 
             if appState.repoListIsCapped {
@@ -245,7 +248,7 @@ struct SettingsView: View {
                     .fixedSize(horizontal: false, vertical: true)
                 HStack(spacing: 12) {
                     Button("Select All Anyway") {
-                        appState.selectAllRepos(filteredRepos.map(\.fullName))
+                        settings.selectAllRepos(filteredRepos.map(\.fullName))
                         showSelectAllWarning = false
                     }
                     .textButtonStyle(.accentColor, font: .caption2.bold())
@@ -265,7 +268,7 @@ struct SettingsView: View {
         ScrollView {
             LazyVStack(spacing: 0) {
                 ForEach(filteredRepos) { repo in
-                    repositoryRow(repo, isSelected: appState.selectedRepoNames.contains(repo.fullName))
+                    repositoryRow(repo, isSelected: settings.selectedRepoNames.contains(repo.fullName))
                 }
             }
         }
@@ -275,7 +278,7 @@ struct SettingsView: View {
 
     private func repositoryRow(_ repo: Repository, isSelected: Bool) -> some View {
         Button {
-            appState.toggleRepo(repo.fullName)
+            settings.toggleRepo(repo.fullName)
         } label: {
             HStack(spacing: 8) {
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
@@ -311,7 +314,7 @@ private extension View {
         Repository(id: 2, fullName: "owner/second-repo"),
         Repository(id: 3, fullName: "owner/third-repo"),
     ]
-    state.selectedRepoNames = ["owner/first-repo", "owner/third-repo"]
-    return SettingsView()
-        .environmentObject(state)
+    state.settings.selectedRepoNames = ["owner/first-repo", "owner/third-repo"]
+    return SettingsView(settings: state.settings)
+        .environment(state)
 }

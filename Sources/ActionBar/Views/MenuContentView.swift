@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct MenuContentView: View {
-    @EnvironmentObject private var appState: AppState
+    @Environment(AppState.self) private var appState
     @EnvironmentObject private var updater: UpdaterService
     @State private var now = Date()
     @State private var showAbout = false
@@ -17,7 +17,7 @@ struct MenuContentView: View {
     private var authenticatedView: some View {
         VStack(spacing: 0) {
             if appState.showingSettings {
-                SettingsView()
+                SettingsView(settings: appState.settings)
                     .frame(minHeight: 520)
             } else {
                 header
@@ -117,7 +117,7 @@ struct MenuContentView: View {
                     WorkflowRowView(
                         run: run,
                         now: now,
-                        showsTriggeringActor: appState.includeRunsFromOtherUsers
+                        showsTriggeringActor: appState.settings.includeRunsFromOtherUsers
                     )
 
                     if run.id != appState.runs.last?.id {
@@ -201,7 +201,7 @@ struct MenuContentView: View {
         ),
     ]
     return MenuContentView()
-        .environmentObject(state)
+        .environment(state)
         .environmentObject(UpdaterService())
 }
 
@@ -210,7 +210,7 @@ struct MenuContentView: View {
     state.isAuthenticated = true
     state.username = "octocat"
     return MenuContentView()
-        .environmentObject(state)
+        .environment(state)
         .environmentObject(UpdaterService())
 }
 
@@ -220,6 +220,6 @@ struct MenuContentView: View {
     state.username = "octocat"
     state.isLoading = true
     return MenuContentView()
-        .environmentObject(state)
+        .environment(state)
         .environmentObject(UpdaterService())
 }

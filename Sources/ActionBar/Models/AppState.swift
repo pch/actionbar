@@ -1,58 +1,40 @@
 import AppKit
-import Combine
+import Observation
 
 @MainActor
-final class AppState: ObservableObject {
-    static let defaultPollingInterval: TimeInterval = 30
-    static let defaultMaxRunsPerRepo = 5
+@Observable
+final class AppState {
+    var isAuthenticated = KeychainService.loadToken() != nil
+    var runs: [WorkflowRun] = []
+    var isLoading = false
+    var errorMessage: String?
+    var username: String?
+    var deviceCode: DeviceCodeResponse?
+    var isLoggingIn = false
+    var availableRepos: [Repository] = []
+    var isLoadingRepos = false
+    var repoListIsCapped = false
+    var showingSettings = false
+    var needsInstallation = false
+    var isCheckingInstallation = false
+    private(set) var overallStatus: RunStatus = .unknown
 
-    @Published var isAuthenticated = KeychainService.loadToken() != nil
-    @Published var runs: [WorkflowRun] = []
-    @Published var isLoading = false
-    @Published var errorMessage: String?
-    @Published var username: String?
-    @Published var deviceCode: DeviceCodeResponse?
-    @Published var isLoggingIn = false
-    @Published var selectedRepoNames: Set<String> = []
-    @Published var repoSelectionSnapshot: Set<String> = []
-    @Published var availableRepos: [Repository] = []
-    @Published var isLoadingRepos = false
-    @Published var repoListIsCapped = false
-    @Published var showingSettings = false
-    @Published var needsInstallation = false
-    @Published var isCheckingInstallation = false
-    @Published var pollingInterval = AppState.defaultPollingInterval
-    @Published var workflowFilterMode: WorkflowFilterMode = .off
-    @Published var workflowFilterText = ""
-    @Published var maxRunsPerRepo = AppState.defaultMaxRunsPerRepo
-    @Published var includeRunsFromOtherUsers = false
-    @Published private(set) var overallStatus: RunStatus = .unknown
+    let settings: SettingsStore
 
     private let apiClient = GitHubAPIClient()
     private let oauthService = OAuthService()
-    private let defaults = UserDefaults.standard
-    private var pollTask: Task<Void, Never>?
-    private var installCheckTask: Task<Void, Never>?
-    private var oauthTask: Task<Void, Never>?
-    private var previousRunStatuses: [Int: String] = [:] // run.id -> run.status
-    private var hasLoadedOnce = false
-    private var isFetchingRuns = false
+    @ObservationIgnored private var pollTask: Task<Void, Never>?
+    @ObservationIgnored private var installCheckTask: Task<Void, Never>?
+    @ObservationIgnored private var oauthTask: Task<Void, Never>?
+    @ObservationIgnored private var previousRunStatuses: [Int: String] = [:] // run.id -> run.status
+    @ObservationIgnored private var hasLoadedOnce = false
+    @ObservationIgnored private var isFetchingRuns = false
 
-    private enum DefaultsKey {
-        static let selectedRepos = "selectedRepositories"
-        static let pollingInterval = "pollingInterval"
-        static let workflowFilterMode = "workflowFilterMode"
-        static let workflowFilterText = "workflowFilterText"
-        static let maxRunsPerRepo = "maxRunsPerRepo"
-        static let includeRunsFromOtherUsers = "includeRunsFromOtherUsers"
-    }
-
-    private var hasRepoConfiguration: Bool {
-        defaults.object(forKey: DefaultsKey.selectedRepos) != nil
+    init(settings: SettingsStore? = nil) {
+        self.settings = settings ?? SettingsStore()
     }
 
     func start() {
-        loadSettings()
         guard let token = KeychainService.loadToken() else { return }
         isAuthenticated = true
         Task {
@@ -128,24 +110,10 @@ final class AppState: ObservableObject {
         previousRunStatuses = [:]
         hasLoadedOnce = false
         errorMessage = nil
-        selectedRepoNames = []
         availableRepos = []
         repoListIsCapped = false
         showingSettings = false
-        workflowFilterMode = .off
-        workflowFilterText = ""
-        maxRunsPerRepo = Self.defaultMaxRunsPerRepo
-        includeRunsFromOtherUsers = false
-        // The polling interval is a device preference, so it survives signing out.
-        for key in [
-            DefaultsKey.selectedRepos,
-            DefaultsKey.workflowFilterMode,
-            DefaultsKey.workflowFilterText,
-            DefaultsKey.maxRunsPerRepo,
-            DefaultsKey.includeRunsFromOtherUsers,
-        ] {
-            defaults.removeObject(forKey: key)
-        }
+        settings.resetAccountSettings()
     }
 
     // MARK: - GitHub App Installation
@@ -223,8 +191,7 @@ final class AppState: ObservableObject {
     }
 
     func updatePollingInterval(_ interval: TimeInterval) {
-        pollingInterval = interval
-        defaults.set(pollingInterval, forKey: DefaultsKey.pollingInterval)
+        settings.pollingInterval = interval
         startPolling()
     }
 
@@ -235,7 +202,7 @@ final class AppState: ObservableObject {
             while !Task.isCancelled {
                 // Wait in short steps against a wall-clock deadline, so a refresh happens
                 // promptly after the Mac wakes from sleep.
-                let deadline = Date().addingTimeInterval(pollingInterval)
+                let deadline = Date().addingTimeInterval(settings.pollingInterval)
                 while Date() < deadline, !Task.isCancelled {
                     try? await Task.sleep(for: .seconds(1))
                 }
@@ -266,19 +233,19 @@ final class AppState: ObservableObject {
         errorMessage = nil
 
         do {
-            let usingFallback = !hasRepoConfiguration || selectedRepoNames.isEmpty
-            let repos = usingFallback ? nil : Array(selectedRepoNames)
-            let actor = includeRunsFromOtherUsers ? nil : username
+            let usingFallback = !settings.hasRepoConfiguration || settings.selectedRepoNames.isEmpty
+            let repos = usingFallback ? nil : Array(settings.selectedRepoNames)
+            let actor = settings.includeRunsFromOtherUsers ? nil : username
             let newRuns = try await apiClient.fetchRecentRuns(token: token, actor: actor, repos: repos)
 
             // With nothing selected yet, adopt the repos that have recent runs as the selection.
             if usingFallback && !newRuns.isEmpty {
-                selectedRepoNames = Set(newRuns.map(\.repositoryFullName))
-                saveSelectedRepos()
+                settings.selectedRepoNames = Set(newRuns.map(\.repositoryFullName))
+                settings.saveSelectedRepos()
             }
 
-            let workflowFilteredRuns = newRuns.filtered(by: workflowFilterMode, patterns: workflowFilterText)
-            let visibleRuns = workflowFilteredRuns.limited(toRunsPerRepo: maxRunsPerRepo)
+            let workflowFilteredRuns = newRuns.filtered(by: settings.workflowFilterMode, patterns: settings.workflowFilterText)
+            let visibleRuns = workflowFilteredRuns.limited(toRunsPerRepo: settings.maxRunsPerRepo)
 
             if hasLoadedOnce {
                 notifyCompletedRuns(in: visibleRuns)
@@ -311,66 +278,7 @@ final class AppState: ObservableObject {
         }
     }
 
-    // MARK: - Settings
-
-    private func loadSettings() {
-        if let saved = defaults.stringArray(forKey: DefaultsKey.selectedRepos) {
-            selectedRepoNames = Set(saved)
-        }
-
-        let savedInterval = defaults.double(forKey: DefaultsKey.pollingInterval)
-        pollingInterval = savedInterval > 0 ? savedInterval : Self.defaultPollingInterval
-
-        if let modeRaw = defaults.string(forKey: DefaultsKey.workflowFilterMode),
-           let mode = WorkflowFilterMode(rawValue: modeRaw) {
-            workflowFilterMode = mode
-        }
-        workflowFilterText = defaults.string(forKey: DefaultsKey.workflowFilterText) ?? ""
-
-        let savedMaxRuns = defaults.integer(forKey: DefaultsKey.maxRunsPerRepo)
-        maxRunsPerRepo = savedMaxRuns > 0 ? savedMaxRuns : Self.defaultMaxRunsPerRepo
-
-        includeRunsFromOtherUsers = defaults.bool(forKey: DefaultsKey.includeRunsFromOtherUsers)
-    }
-
-    /// Persists the settings edited in the settings panel. The polling interval is saved as soon as it changes.
-    func saveSettings() {
-        saveSelectedRepos()
-        defaults.set(workflowFilterMode.rawValue, forKey: DefaultsKey.workflowFilterMode)
-        defaults.set(workflowFilterText, forKey: DefaultsKey.workflowFilterText)
-        defaults.set(maxRunsPerRepo, forKey: DefaultsKey.maxRunsPerRepo)
-        defaults.set(includeRunsFromOtherUsers, forKey: DefaultsKey.includeRunsFromOtherUsers)
-    }
-
-    private func saveSelectedRepos() {
-        defaults.set(Array(selectedRepoNames), forKey: DefaultsKey.selectedRepos)
-    }
-
-    // MARK: - Repository Selection
-
-    func snapshotSelectedRepos() {
-        repoSelectionSnapshot = Set(defaults.stringArray(forKey: DefaultsKey.selectedRepos) ?? [])
-    }
-
-    func resetReposToSnapshot() {
-        selectedRepoNames = repoSelectionSnapshot
-    }
-
-    func toggleRepo(_ repoName: String) {
-        if selectedRepoNames.contains(repoName) {
-            selectedRepoNames.remove(repoName)
-        } else {
-            selectedRepoNames.insert(repoName)
-        }
-    }
-
-    func selectAllRepos(_ repoNames: [String]) {
-        selectedRepoNames = Set(repoNames)
-    }
-
-    func deselectAllRepos() {
-        selectedRepoNames = []
-    }
+    // MARK: - Repositories
 
     func fetchAvailableRepos(force: Bool = false) {
         guard let token = KeychainService.loadToken() else { return }
