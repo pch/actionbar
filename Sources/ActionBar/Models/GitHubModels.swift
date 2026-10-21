@@ -3,6 +3,16 @@ import Foundation
 // Responses from the GitHub REST API and OAuth device flow.
 // Decoded with `.convertFromSnakeCase`, so property names mirror the JSON keys.
 
+extension JSONDecoder {
+    /// A decoder for GitHub REST API responses.
+    static func gitHubAPI() -> JSONDecoder {
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        decoder.dateDecodingStrategy = .iso8601
+        return decoder
+    }
+}
+
 struct GitHubUser: Decodable {
     let login: String
 }

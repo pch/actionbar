@@ -30,6 +30,16 @@
 		A10001000000000000000021 /* GitHubModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002000000000000000021 /* GitHubModels.swift */; };
 		A10001000000000000000022 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002000000000000000022 /* Components.swift */; };
 		A10001000000000000000023 /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002000000000000000023 /* SettingsStore.swift */; };
+		A10001000000000000000030 /* TestRuns.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002000000000000000030 /* TestRuns.swift */; };
+		A10001000000000000000031 /* RunStatusTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002000000000000000031 /* RunStatusTests.swift */; };
+		A10001000000000000000032 /* WorkflowRunListTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002000000000000000032 /* WorkflowRunListTests.swift */; };
+		A10001000000000000000033 /* RelativeTimeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002000000000000000033 /* RelativeTimeTests.swift */; };
+		A10001000000000000000034 /* ModelDecodingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002000000000000000034 /* ModelDecodingTests.swift */; };
+		A10001000000000000000035 /* SettingsStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002000000000000000035 /* SettingsStoreTests.swift */; };
+		A10001000000000000000040 /* WorkflowRun.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002000000000000000003 /* WorkflowRun.swift */; };
+		A10001000000000000000041 /* GitHubModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002000000000000000021 /* GitHubModels.swift */; };
+		A10001000000000000000042 /* RelativeTime.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002000000000000000014 /* RelativeTime.swift */; };
+		A10001000000000000000043 /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002000000000000000023 /* SettingsStore.swift */; };
 /* End PBXBuildFile section */
 
 
@@ -59,6 +69,13 @@
 		A10002000000000000000022 /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
 		A10002000000000000000023 /* SettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsStore.swift; sourceTree = "<group>"; };
 		A10002000000000000000020 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A10002000000000000000030 /* TestRuns.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestRuns.swift; sourceTree = "<group>"; };
+		A10002000000000000000031 /* RunStatusTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunStatusTests.swift; sourceTree = "<group>"; };
+		A10002000000000000000032 /* WorkflowRunListTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkflowRunListTests.swift; sourceTree = "<group>"; };
+		A10002000000000000000033 /* RelativeTimeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelativeTimeTests.swift; sourceTree = "<group>"; };
+		A10002000000000000000034 /* ModelDecodingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelDecodingTests.swift; sourceTree = "<group>"; };
+		A10002000000000000000035 /* SettingsStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsStoreTests.swift; sourceTree = "<group>"; };
+		A10003000000000000000002 /* ActionBarTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ActionBarTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -67,6 +84,13 @@
 			buildActionMask = 2147483647;
 			files = (
 				A10001000000000000000018 /* Sparkle in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A10004000000000000000002 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -79,6 +103,7 @@
 				A10002000000000000000018 /* Base.xcconfig */,
 				A10005000000000000000003 /* Sources */,
 				A10005000000000000000008 /* Resources */,
+				A10005000000000000000010 /* ActionBarTests */,
 				A10005000000000000000002 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -87,6 +112,7 @@
 			isa = PBXGroup;
 			children = (
 				A10003000000000000000001 /* ActionBar.app */,
+				A10003000000000000000002 /* ActionBarTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -169,6 +195,19 @@
 			path = Utilities;
 			sourceTree = "<group>";
 		};
+		A10005000000000000000010 /* ActionBarTests */ = {
+			isa = PBXGroup;
+			children = (
+				A10002000000000000000030 /* TestRuns.swift */,
+				A10002000000000000000031 /* RunStatusTests.swift */,
+				A10002000000000000000032 /* WorkflowRunListTests.swift */,
+				A10002000000000000000033 /* RelativeTimeTests.swift */,
+				A10002000000000000000034 /* ModelDecodingTests.swift */,
+				A10002000000000000000035 /* SettingsStoreTests.swift */,
+			);
+			path = Tests/ActionBarTests;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -191,6 +230,22 @@
 			productName = GitHubActionsMenu;
 			productReference = A10003000000000000000001 /* ActionBar.app */;
 			productType = "com.apple.product-type.application";
+		};
+		A10006000000000000000002 /* ActionBarTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A10008000000000000000004 /* Build configuration list for PBXNativeTarget "ActionBarTests" */;
+			buildPhases = (
+				A10007000000000000000003 /* Sources */,
+				A10004000000000000000002 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ActionBarTests;
+			productName = ActionBarTests;
+			productReference = A10003000000000000000002 /* ActionBarTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
 		};
 /* End PBXNativeTarget section */
 
@@ -219,6 +274,7 @@
 			projectRoot = "";
 			targets = (
 				A10006000000000000000001 /* ActionBar */,
+				A10006000000000000000002 /* ActionBarTests */,
 			);
 		};
 /* End PBXProject section */
@@ -260,6 +316,23 @@
 				A10001000000000000000021 /* GitHubModels.swift in Sources */,
 				A10001000000000000000022 /* Components.swift in Sources */,
 				A10001000000000000000023 /* SettingsStore.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A10007000000000000000003 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10001000000000000000030 /* TestRuns.swift in Sources */,
+				A10001000000000000000031 /* RunStatusTests.swift in Sources */,
+				A10001000000000000000032 /* WorkflowRunListTests.swift in Sources */,
+				A10001000000000000000033 /* RelativeTimeTests.swift in Sources */,
+				A10001000000000000000034 /* ModelDecodingTests.swift in Sources */,
+				A10001000000000000000035 /* SettingsStoreTests.swift in Sources */,
+				A10001000000000000000040 /* WorkflowRun.swift in Sources */,
+				A10001000000000000000041 /* GitHubModels.swift in Sources */,
+				A10001000000000000000042 /* RelativeTime.swift in Sources */,
+				A10001000000000000000043 /* SettingsStore.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -427,6 +500,30 @@
 			};
 			name = Release;
 		};
+		A1000A000000000000000005 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				GENERATE_INFOPLIST_FILE = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.ptrchm.actionbar.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		A1000A000000000000000006 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				GENERATE_INFOPLIST_FILE = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.ptrchm.actionbar.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -444,6 +541,15 @@
 			buildConfigurations = (
 				A1000A000000000000000003 /* Debug */,
 				A1000A000000000000000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A10008000000000000000004 /* Build configuration list for PBXNativeTarget "ActionBarTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1000A000000000000000005 /* Debug */,
+				A1000A000000000000000006 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

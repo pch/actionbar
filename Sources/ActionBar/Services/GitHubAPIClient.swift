@@ -59,10 +59,7 @@ actor GitHubAPIClient {
             "X-GitHub-Api-Version": "2022-11-28",
         ]
         self.session = URLSession(configuration: config)
-
-        self.decoder = JSONDecoder()
-        self.decoder.keyDecodingStrategy = .convertFromSnakeCase
-        self.decoder.dateDecodingStrategy = .iso8601
+        self.decoder = .gitHubAPI()
     }
 
     func clearConditionalCache() {
