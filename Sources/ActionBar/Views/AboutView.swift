@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct AboutView: View {
+    @EnvironmentObject var updater: UpdaterService
+
     private var appVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
     }
@@ -21,6 +23,12 @@ struct AboutView: View {
             }
             .font(.caption)
             .buttonStyle(.link)
+
+            Button("Check for Updates…") {
+                updater.checkForUpdates()
+            }
+            .font(.caption)
+            .disabled(!updater.canCheckForUpdates)
         }
         .padding(16)
     }
@@ -28,4 +36,5 @@ struct AboutView: View {
 
 #Preview {
     AboutView()
+        .environmentObject(UpdaterService())
 }

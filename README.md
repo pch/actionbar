@@ -7,7 +7,7 @@ Monitor your GitHub Actions workflow runs directly from the macOS menu bar.
 </p>
 
 <p align="center">
-  <a href="https://apps.apple.com/us/app/actionbar/id6758538752">Download on the Mac App Store</a> ·
+  <a href="https://github.com/pch/actionbar/releases/latest/download/ActionBar.dmg">Download</a> ·
   <a href="https://ptrchm.com/actionbar/">Website</a>
 </p>
 
@@ -18,6 +18,7 @@ Monitor your GitHub Actions workflow runs directly from the macOS menu bar.
 - Select the repositories you want to monitor
 - Minimal permissions — no access to your code
 - Native macOS app — lightweight and fast
+- Automatic updates via [Sparkle](https://sparkle-project.org)
 
 ## How it works
 
@@ -29,7 +30,7 @@ By default, ActionBar polls the API every 30 seconds; the interval is configurab
 
 ## Privacy
 
-ActionBar does not collect, transmit, or share any personal data. All communication is exclusively with GitHub's official API (`api.github.com`). No analytics, telemetry, or third-party services are used. All stored data is deleted when you sign out.
+ActionBar does not collect, transmit, or share any personal data. The app only talks to GitHub: the official API (`api.github.com`) and, for update checks, this repository's releases. No analytics, telemetry, or third-party services are used. All stored data is deleted when you sign out.
 
 ## Building from source
 
@@ -39,7 +40,31 @@ Requirements: macOS 14+ and a recent version of Xcode.
 2. Copy `Config/Local.xcconfig.example` to `Config/Local.xcconfig` and set your Apple Developer Team ID and a bundle identifier registered to your team.
 3. Open `ActionBar.xcodeproj` and run the `ActionBar` scheme, or use `make run`.
 
-The app authenticates through the official ActionBar GitHub App. If you're shipping your own fork, register your own [GitHub App](https://docs.github.com/en/apps/creating-github-apps) with device flow enabled and **Actions (read)** permission, then update `clientID` in `Sources/ActionBar/Services/OAuthService.swift` and the app's installation URL.
+The app authenticates through the official ActionBar GitHub App. If you're shipping your own fork, register your own [GitHub App](https://docs.github.com/en/apps/creating-github-apps) with device flow enabled and **Actions (read)** permission, then update `clientID` in `Sources/ActionBar/Services/OAuthService.swift` and the app's installation URL. You'll also need your own Sparkle key pair and feed URL in `Resources/Info.plist` (see below).
+
+## Releasing
+
+Releases are built, signed, notarized and published by the [Release workflow](.github/workflows/release.yml) when a version tag is pushed:
+
+```sh
+git tag v1.8
+git push origin v1.8
+```
+
+The workflow produces a notarized `ActionBar.dmg` and a Sparkle `appcast.xml`, and attaches both to a GitHub Release. The app checks `releases/latest/download/appcast.xml` for updates. The build number is the commit count, so it always increases.
+
+It needs these repository secrets:
+
+| Secret | Value |
+| --- | --- |
+| `DEVELOPER_ID_CERT_P12` | "Developer ID Application" certificate exported from Keychain Access as `.p12`, base64-encoded |
+| `DEVELOPER_ID_CERT_PASSWORD` | Password for the `.p12` |
+| `ASC_API_KEY_P8` | App Store Connect API key (`.p8`), base64-encoded |
+| `ASC_KEY_ID` | App Store Connect API key ID |
+| `ASC_ISSUER_ID` | App Store Connect API issuer ID |
+| `SPARKLE_PRIVATE_KEY` | Sparkle EdDSA private key (`generate_keys --account actionbar -x key.txt`) |
+
+and the repository variable `APPLE_TEAM_ID`.
 
 ## License
 

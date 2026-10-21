@@ -25,11 +25,12 @@
 		A10001000000000000000015 /* MenuBarIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002000000000000000015 /* MenuBarIcon.swift */; };
 		A10001000000000000000016 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A10002000000000000000016 /* Assets.xcassets */; };
 		A10001000000000000000017 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002000000000000000017 /* SettingsView.swift */; };
+		A10001000000000000000018 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = A1000C000000000000000001 /* Sparkle */; };
+		A10001000000000000000019 /* UpdaterService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002000000000000000019 /* UpdaterService.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		24E6B8522F2D684B00884177 /* MyIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = MyIcon.icon; sourceTree = "<group>"; };
-		24F874A92F2DF07C00553174 /* ActionBarRelease.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ActionBarRelease.entitlements; sourceTree = "<group>"; };
 		A10002000000000000000001 /* ActionBarApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionBarApp.swift; sourceTree = "<group>"; };
 		A10002000000000000000002 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		A10002000000000000000003 /* WorkflowRun.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkflowRun.swift; sourceTree = "<group>"; };
@@ -49,6 +50,8 @@
 		A10002000000000000000017 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		A10003000000000000000001 /* ActionBar.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ActionBar.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A10002000000000000000018 /* Base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Base.xcconfig; path = Config/Base.xcconfig; sourceTree = "<group>"; };
+		A10002000000000000000019 /* UpdaterService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdaterService.swift; sourceTree = "<group>"; };
+		A10002000000000000000020 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -56,6 +59,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A10001000000000000000018 /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -66,7 +70,6 @@
 			isa = PBXGroup;
 			children = (
 				A10002000000000000000018 /* Base.xcconfig */,
-				24F874A92F2DF07C00553174 /* ActionBarRelease.entitlements */,
 				A10005000000000000000003 /* Sources */,
 				A10005000000000000000008 /* Resources */,
 				A10005000000000000000002 /* Products */,
@@ -119,6 +122,7 @@
 				A10002000000000000000006 /* KeychainService.swift */,
 				A10002000000000000000007 /* GitHubAPIClient.swift */,
 				A10002000000000000000008 /* OAuthService.swift */,
+				A10002000000000000000019 /* UpdaterService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -141,6 +145,7 @@
 			children = (
 				A10002000000000000000016 /* Assets.xcassets */,
 				24E6B8522F2D684B00884177 /* MyIcon.icon */,
+				A10002000000000000000020 /* Info.plist */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -170,6 +175,9 @@
 			dependencies = (
 			);
 			name = ActionBar;
+			packageProductDependencies = (
+				A1000C000000000000000001 /* Sparkle */,
+			);
 			productName = GitHubActionsMenu;
 			productReference = A10003000000000000000001 /* ActionBar.app */;
 			productType = "com.apple.product-type.application";
@@ -193,6 +201,9 @@
 				Base,
 			);
 			mainGroup = A10005000000000000000001;
+			packageReferences = (
+				A1000B000000000000000001 /* XCRemoteSwiftPackageReference "Sparkle" */,
+			);
 			productRefGroup = A10005000000000000000002 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -221,6 +232,7 @@
 			files = (
 				A10001000000000000000001 /* ActionBarApp.swift in Sources */,
 				A10001000000000000000002 /* AppDelegate.swift in Sources */,
+				A10001000000000000000019 /* UpdaterService.swift in Sources */,
 				A10001000000000000000003 /* WorkflowRun.swift in Sources */,
 				A10001000000000000000004 /* AppState.swift in Sources */,
 				A10001000000000000000005 /* NotificationService.swift in Sources */,
@@ -356,8 +368,8 @@
 				DEAD_CODE_STRIPPING = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Resources/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = ActionBar;
-				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				INFOPLIST_KEY_LSUIElement = YES;
 				MARKETING_VERSION = 1.7;
@@ -375,27 +387,15 @@
 				ARCHS = "$(ARCHS_STANDARD)";
 				ASSETCATALOG_COMPILER_APPICON_NAME = MyIcon;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
-				CODE_SIGN_ENTITLEMENTS = ActionBarRelease.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 9;
 				DEAD_CODE_STRIPPING = YES;
-				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
-				ENABLE_INCOMING_NETWORK_CONNECTIONS = NO;
-				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
-				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = NO;
-				ENABLE_RESOURCE_ACCESS_BLUETOOTH = NO;
-				ENABLE_RESOURCE_ACCESS_CALENDARS = NO;
-				ENABLE_RESOURCE_ACCESS_CAMERA = NO;
-				ENABLE_RESOURCE_ACCESS_CONTACTS = NO;
-				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
-				ENABLE_RESOURCE_ACCESS_PRINTING = NO;
-				ENABLE_RESOURCE_ACCESS_USB = NO;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Resources/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = ActionBar;
-				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				INFOPLIST_KEY_LSUIElement = YES;
 				MARKETING_VERSION = 1.7;
@@ -428,6 +428,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		A1000B000000000000000001 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.7.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		A1000C000000000000000001 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A1000B000000000000000001 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = A10009000000000000000001 /* Project object */;
 }

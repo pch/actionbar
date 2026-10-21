@@ -4,11 +4,13 @@ import SwiftUI
 struct ActionBarApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var appState = AppState()
+    @StateObject private var updater = UpdaterService()
 
     var body: some Scene {
         MenuBarExtra {
             MenuContentView()
                 .environmentObject(appState)
+                .environmentObject(updater)
         } label: {
             MenuBarLabel(appState: appState)
                 .onAppear { appState.start() }
