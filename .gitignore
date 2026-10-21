@@ -6,3 +6,7 @@ xcuserdata/
 *.xcodeproj/xcuserdata/
 DerivedData/
 .DS_Store
+
+# Local agent config
+.claude/settings.local.json
+CLAUDE.md
