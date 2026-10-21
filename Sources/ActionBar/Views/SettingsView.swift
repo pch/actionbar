@@ -47,7 +47,7 @@ struct SettingsView: View {
             repositoryList
         }
         .onAppear {
-            repoSelectionSnapshot = settings.savedSelectedRepoNames
+            repoSelectionSnapshot = settings.selectedRepoNames
         }
     }
 
@@ -57,7 +57,6 @@ struct SettingsView: View {
                 .font(.headline)
             Spacer()
             Button("Done") {
-                settings.save()
                 appState.showingSettings = false
                 appState.refreshNow()
             }

@@ -1,21 +1,31 @@
 import Foundation
 import Observation
 
-/// The user's preferences, persisted in `UserDefaults`.
+/// The user's preferences, saved to `UserDefaults` as soon as they change.
 @MainActor
 @Observable
 final class SettingsStore {
     static let defaultPollingInterval: TimeInterval = 30
     static let defaultMaxRunsPerRepo = 5
 
-    var selectedRepoNames: Set<String> = []
-    var pollingInterval = SettingsStore.defaultPollingInterval {
-        didSet { if !isLoading { defaults.set(pollingInterval, forKey: Key.pollingInterval) } }
+    var selectedRepoNames: Set<String> = [] {
+        didSet { save(Array(selectedRepoNames), forKey: Key.selectedRepos) }
     }
-    var workflowFilterMode: WorkflowFilterMode = .off
-    var workflowFilterText = ""
-    var maxRunsPerRepo = SettingsStore.defaultMaxRunsPerRepo
-    var includeRunsFromOtherUsers = false
+    var pollingInterval = SettingsStore.defaultPollingInterval {
+        didSet { save(pollingInterval, forKey: Key.pollingInterval) }
+    }
+    var workflowFilterMode: WorkflowFilterMode = .off {
+        didSet { save(workflowFilterMode.rawValue, forKey: Key.workflowFilterMode) }
+    }
+    var workflowFilterText = "" {
+        didSet { save(workflowFilterText, forKey: Key.workflowFilterText) }
+    }
+    var maxRunsPerRepo = SettingsStore.defaultMaxRunsPerRepo {
+        didSet { save(maxRunsPerRepo, forKey: Key.maxRunsPerRepo) }
+    }
+    var includeRunsFromOtherUsers = false {
+        didSet { save(includeRunsFromOtherUsers, forKey: Key.includeRunsFromOtherUsers) }
+    }
 
     @ObservationIgnored private let defaults: UserDefaults
     /// `@Observable` runs `didSet` even for assignments in `init`; this keeps loading from writing back.
@@ -53,26 +63,9 @@ final class SettingsStore {
         isLoading = false
     }
 
-    /// Whether a repository selection has ever been saved.
-    var hasRepoConfiguration: Bool {
-        defaults.object(forKey: Key.selectedRepos) != nil
-    }
-
-    var savedSelectedRepoNames: Set<String> {
-        Set(defaults.stringArray(forKey: Key.selectedRepos) ?? [])
-    }
-
-    /// Persists the settings edited in the settings panel. The polling interval is saved as soon as it changes.
-    func save() {
-        saveSelectedRepos()
-        defaults.set(workflowFilterMode.rawValue, forKey: Key.workflowFilterMode)
-        defaults.set(workflowFilterText, forKey: Key.workflowFilterText)
-        defaults.set(maxRunsPerRepo, forKey: Key.maxRunsPerRepo)
-        defaults.set(includeRunsFromOtherUsers, forKey: Key.includeRunsFromOtherUsers)
-    }
-
-    func saveSelectedRepos() {
-        defaults.set(Array(selectedRepoNames), forKey: Key.selectedRepos)
+    private func save(_ value: Any, forKey key: String) {
+        guard !isLoading else { return }
+        defaults.set(value, forKey: key)
     }
 
     /// Forgets everything tied to the signed-in account.

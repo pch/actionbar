@@ -233,7 +233,7 @@ final class AppState {
         errorMessage = nil
 
         do {
-            let usingFallback = !settings.hasRepoConfiguration || settings.selectedRepoNames.isEmpty
+            let usingFallback = settings.selectedRepoNames.isEmpty
             let repos = usingFallback ? nil : Array(settings.selectedRepoNames)
             let actor = settings.includeRunsFromOtherUsers ? nil : username
             let newRuns = try await apiClient.fetchRecentRuns(token: token, actor: actor, repos: repos)
@@ -241,7 +241,6 @@ final class AppState {
             // With nothing selected yet, adopt the repos that have recent runs as the selection.
             if usingFallback && !newRuns.isEmpty {
                 settings.selectedRepoNames = Set(newRuns.map(\.repositoryFullName))
-                settings.saveSelectedRepos()
             }
 
             let workflowFilteredRuns = newRuns.filtered(by: settings.workflowFilterMode, patterns: settings.workflowFilterText)
