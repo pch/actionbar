@@ -30,6 +30,7 @@ final class AppState {
     @ObservationIgnored private var installCheckTask: Task<Void, Never>?
     @ObservationIgnored private var oauthTask: Task<Void, Never>?
     @ObservationIgnored private var previousRunStatuses: [Int: RunStatus] = [:] // run.id -> status
+    @ObservationIgnored private var hasStarted = false
     @ObservationIgnored private var hasLoadedOnce = false
     @ObservationIgnored private var isFetchingRuns = false
 
@@ -37,7 +38,10 @@ final class AppState {
         self.settings = settings ?? SettingsStore()
     }
 
+    /// Resumes the saved session. Safe to call more than once; only the first call does anything.
     func start() {
+        guard !hasStarted else { return }
+        hasStarted = true
         guard let token = KeychainService.loadToken() else { return }
         isAuthenticated = true
         Task {

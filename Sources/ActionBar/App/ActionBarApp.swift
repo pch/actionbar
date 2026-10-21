@@ -13,6 +13,7 @@ struct ActionBarApp: App {
                 .environmentObject(updater)
         } label: {
             MenuBarLabel(appState: appState)
+                // onAppear can fire more than once; start() only runs the first time.
                 .onAppear { appState.start() }
         }
         .menuBarExtraStyle(.window)
