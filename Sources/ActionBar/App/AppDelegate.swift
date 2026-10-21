@@ -14,8 +14,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             object: nil,
             queue: .main
         ) { notification in
-            guard let panel = notification.object as? NSPanel, !(panel is NSOpenPanel) else { return }
-            panel.collectionBehavior.insert([.canJoinAllSpaces, .stationary, .fullScreenAuxiliary])
+            let behavior: NSWindow.CollectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary]
+            guard let panel = notification.object as? NSPanel, !(panel is NSOpenPanel),
+                  !panel.collectionBehavior.contains(behavior) else { return }
+            panel.collectionBehavior.insert(behavior)
         }
     }
 
