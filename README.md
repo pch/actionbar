@@ -47,8 +47,8 @@ The app authenticates through the official ActionBar GitHub App. If you're shipp
 Releases are built, signed, notarized and published by the [Release workflow](.github/workflows/release.yml) when a version tag is pushed:
 
 ```sh
-git tag v1.8
-git push origin v1.8
+git tag v1.0.0
+git push origin v1.0.0
 ```
 
 The workflow produces a notarized `ActionBar.dmg` and a Sparkle `appcast.xml`, and attaches both to a GitHub Release. The app checks `releases/latest/download/appcast.xml` for updates. The build number is the commit count, so it always increases.
