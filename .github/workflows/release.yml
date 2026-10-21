@@ -1,6 +1,7 @@
 name: Release
 
-# Push a tag like `v1.0.0` to build, sign, notarize and publish a release.
+# Push a tag like `v2.0` to build, sign, notarize and publish a release.
+# CHANGELOG.md must have a `## <version>` section; it becomes the release notes.
 #
 # Required repository secrets:
 #   DEVELOPER_ID_CERT_P12           Base64-encoded "Developer ID Application" certificate (.p12)
@@ -43,6 +44,18 @@ jobs:
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           # Sparkle compares build numbers, so this must always increase.
           echo "BUILD_NUMBER=$(git rev-list --count HEAD)" >> "$GITHUB_ENV"
+
+      - name: Extract release notes
+        run: |
+          mkdir -p "$UPDATES_PATH"
+          # Sparkle picks up notes named like the archive (ActionBar.md for ActionBar.dmg).
+          awk -v v="$VERSION" '/^## / { if (found) exit; found = ($2 == v); next } found' CHANGELOG.md \
+            | sed -e '/./,$!d' > "$UPDATES_PATH/ActionBar.md"
+          if ! grep -q '[^[:space:]]' "$UPDATES_PATH/ActionBar.md"; then
+            echo "CHANGELOG.md has no notes for $VERSION. Add a '## $VERSION' section." >&2
+            exit 1
+          fi
+          cat "$UPDATES_PATH/ActionBar.md"
 
       - name: Import signing certificate
         env:
@@ -95,7 +108,7 @@ jobs:
 
       - name: Create DMG
         run: |
-          mkdir -p "$RUNNER_TEMP/dmg" "$UPDATES_PATH"
+          mkdir -p "$RUNNER_TEMP/dmg"
           cp -R "$EXPORT_PATH/ActionBar.app" "$RUNNER_TEMP/dmg/"
           ln -s /Applications "$RUNNER_TEMP/dmg/Applications"
           hdiutil create -volname ActionBar -srcfolder "$RUNNER_TEMP/dmg" -ov -format UDZO "$UPDATES_PATH/ActionBar.dmg"
@@ -120,6 +133,7 @@ jobs:
         run: |
           echo "$SPARKLE_PRIVATE_KEY" | "$SPM_PATH/artifacts/sparkle/Sparkle/bin/generate_appcast" \
             --ed-key-file - \
+            --embed-release-notes \
             --download-url-prefix "https://github.com/$GITHUB_REPOSITORY/releases/download/$GITHUB_REF_NAME/" \
             --full-release-notes-url "https://github.com/$GITHUB_REPOSITORY/releases/tag/$GITHUB_REF_NAME" \
             "$UPDATES_PATH"
@@ -133,7 +147,7 @@ jobs:
             "$UPDATES_PATH/ActionBar.dmg" \
             "$UPDATES_PATH/appcast.xml" \
             --title "ActionBar $VERSION" \
-            --generate-notes
+            --notes-file "$UPDATES_PATH/ActionBar.md"
 
       - name: Clean up
         if: always()
