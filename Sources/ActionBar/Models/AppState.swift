@@ -6,6 +6,8 @@ import Observation
 final class AppState {
     var isAuthenticated = KeychainService.loadToken() != nil
     var runs: [WorkflowRun] = []
+    /// Repositories whose runs failed to load on the last fetch, while others loaded fine.
+    var failedRepos: [String] = []
     var isLoading = false
     var errorMessage: String?
     var username: String?
@@ -14,6 +16,7 @@ final class AppState {
     var availableRepos: [Repository] = []
     var isLoadingRepos = false
     var repoListIsCapped = false
+    var repoListError: String?
     var showingSettings = false
     var needsInstallation = false
     var isCheckingInstallation = false
@@ -106,12 +109,14 @@ final class AppState {
         needsInstallation = false
         overallStatus = .unknown
         runs = []
+        failedRepos = []
         username = nil
         previousRunStatuses = [:]
         hasLoadedOnce = false
         errorMessage = nil
         availableRepos = []
         repoListIsCapped = false
+        repoListError = nil
         showingSettings = false
         settings.resetAccountSettings()
     }
@@ -236,7 +241,8 @@ final class AppState {
             let usingFallback = settings.selectedRepoNames.isEmpty
             let repos = usingFallback ? nil : Array(settings.selectedRepoNames)
             let actor = settings.includeRunsFromOtherUsers ? nil : username
-            let newRuns = try await apiClient.fetchRecentRuns(token: token, actor: actor, repos: repos)
+            let recentRuns = try await apiClient.fetchRecentRuns(token: token, actor: actor, repos: repos)
+            let newRuns = recentRuns.runs
 
             // With nothing selected yet, adopt the repos that have recent runs as the selection.
             if usingFallback && !newRuns.isEmpty {
@@ -258,6 +264,7 @@ final class AppState {
 
             overallStatus = workflowFilteredRuns.overallStatus
             runs = visibleRuns
+            failedRepos = recentRuns.failedRepos
             hasLoadedOnce = true
         } catch GitHubAPIError.invalidToken {
             signOut()
@@ -276,11 +283,15 @@ final class AppState {
         guard let token = KeychainService.loadToken() else { return }
         if !force && !availableRepos.isEmpty { return }
         isLoadingRepos = true
+        repoListError = nil
         Task {
-            // On failure, keep whatever list we had before.
-            if let repos = try? await apiClient.fetchAllRepos(token: token) {
+            do {
+                let repos = try await apiClient.fetchAllRepos(token: token)
                 availableRepos = repos
                 repoListIsCapped = repos.count >= GitHubAPIClient.maxRepositories
+            } catch {
+                // Keep whatever list we had before.
+                repoListError = error.localizedDescription
             }
             isLoadingRepos = false
         }

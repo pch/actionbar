@@ -22,6 +22,10 @@ struct MenuContentView: View {
             } else {
                 header
                 Divider()
+                if !appState.failedRepos.isEmpty && appState.errorMessage == nil {
+                    failedReposWarning
+                    Divider()
+                }
                 content
             }
 
@@ -108,6 +112,25 @@ struct MenuContentView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
+    }
+
+    private var failedReposWarning: some View {
+        let repos = appState.failedRepos
+        return HStack(spacing: 6) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+            Text(repos.count == 1
+                 ? "Couldn't load runs for \(repos[0])"
+                 : "Couldn't load runs for \(repos.count) repositories")
+                .lineLimit(1)
+                .truncationMode(.middle)
+            Spacer()
+        }
+        .font(.caption2)
+        .foregroundStyle(.secondary)
+        .help(repos.joined(separator: "\n"))
+        .padding(.horizontal, 16)
+        .padding(.vertical, 6)
     }
 
     private var runsList: some View {

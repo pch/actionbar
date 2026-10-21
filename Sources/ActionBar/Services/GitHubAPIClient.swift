@@ -23,6 +23,12 @@ enum GitHubAPIError: Error, LocalizedError {
     }
 }
 
+/// Recent runs across repositories, plus the repositories whose runs couldn't be loaded.
+struct RecentRuns {
+    let runs: [WorkflowRun]
+    let failedRepos: [String]
+}
+
 actor GitHubAPIClient {
     /// Upper bound on repositories listed for selection (and polled when nothing is selected).
     static let maxRepositories = 200
@@ -71,7 +77,7 @@ actor GitHubAPIClient {
 
     // MARK: - Workflow Runs
 
-    func fetchRecentRuns(token: String, actor: String? = nil, repos repoNames: [String]? = nil) async throws -> [WorkflowRun] {
+    func fetchRecentRuns(token: String, actor: String? = nil, repos repoNames: [String]? = nil) async throws -> RecentRuns {
         let repoFullNames: [String]
         if let repoNames {
             repoFullNames = repoNames
@@ -79,12 +85,12 @@ actor GitHubAPIClient {
             repoFullNames = try await fetchAllRepos(token: token).map(\.fullName)
         }
 
-        let (allRuns, errors) = await withTaskGroup(of: Result<[WorkflowRun], Error>.self) { group in
+        let (allRuns, errors) = await withTaskGroup(of: (String, Result<[WorkflowRun], Error>).self) { group in
             var pendingRepos = repoFullNames.makeIterator()
 
             func enqueueNextRepo() {
                 guard let repo = pendingRepos.next() else { return }
-                group.addTask { await self.fetchRunsResult(repo: repo, token: token, actor: actor) }
+                group.addTask { (repo, await self.fetchRunsResult(repo: repo, token: token, actor: actor)) }
             }
 
             for _ in 0..<Self.maxConcurrentRequests {
@@ -92,11 +98,11 @@ actor GitHubAPIClient {
             }
 
             var allRuns: [WorkflowRun] = []
-            var errors: [Error] = []
-            while let result = await group.next() {
+            var errors: [(repo: String, error: Error)] = []
+            while let (repo, result) = await group.next() {
                 switch result {
                 case .success(let runs): allRuns.append(contentsOf: runs)
-                case .failure(let error): errors.append(error)
+                case .failure(let error): errors.append((repo, error))
                 }
                 enqueueNextRepo()
             }
@@ -105,20 +111,23 @@ actor GitHubAPIClient {
         }
 
         // Partial results are fine unless the failure affects every request.
-        if errors.contains(where: { if case GitHubAPIError.invalidToken = $0 { true } else { false } }) {
+        if errors.contains(where: { if case GitHubAPIError.invalidToken = $0.error { true } else { false } }) {
             throw GitHubAPIError.invalidToken
         }
-        if errors.contains(where: { if case GitHubAPIError.rateLimited = $0 { true } else { false } }) {
+        if errors.contains(where: { if case GitHubAPIError.rateLimited = $0.error { true } else { false } }) {
             throw GitHubAPIError.rateLimited
         }
         if let firstError = errors.first, allRuns.isEmpty {
-            throw firstError
+            throw firstError.error
         }
 
         let recentRuns = allRuns
             .filter { run in run.event.map { !Self.excludedEvents.contains($0) } ?? true }
             .sorted { $0.createdAt > $1.createdAt }
-        return Array(recentRuns.prefix(Self.maxRecentRuns))
+        return RecentRuns(
+            runs: Array(recentRuns.prefix(Self.maxRecentRuns)),
+            failedRepos: errors.map(\.repo).sorted()
+        )
     }
 
     private func fetchRunsResult(repo: String, token: String, actor: String?) async -> Result<[WorkflowRun], Error> {
@@ -158,8 +167,11 @@ actor GitHubAPIClient {
             throw GitHubAPIError.invalidResponse(httpResponse.statusCode)
         }
 
-        guard let runsResponse = try? decoder.decode(WorkflowRunsResponse.self, from: data) else {
-            return []
+        let runsResponse: WorkflowRunsResponse
+        do {
+            runsResponse = try decoder.decode(WorkflowRunsResponse.self, from: data)
+        } catch {
+            throw GitHubAPIError.decodingError(error)
         }
 
         if let cacheKey {

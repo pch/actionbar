@@ -229,6 +229,14 @@ struct SettingsView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
 
+            if let error = appState.repoListError {
+                Text("Couldn't load repositories: \(error)")
+                    .font(.caption2)
+                    .foregroundStyle(.red)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
             if showSelectAllWarning {
                 selectAllWarning
             }
