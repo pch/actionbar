@@ -1,0 +1,7 @@
+// Copy to Config/Local.xcconfig (git-ignored) and set your own values.
+
+// Your Apple Developer Team ID (Xcode → Settings → Accounts, or developer.apple.com/account).
+DEVELOPMENT_TEAM = XXXXXXXXXX
+
+// A bundle identifier registered to your team.
+PRODUCT_BUNDLE_IDENTIFIER = com.example.actionbar

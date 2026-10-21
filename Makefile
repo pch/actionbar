@@ -4,8 +4,7 @@ SCHEME = $(APP_NAME)
 BUILD_DIR = $(shell xcodebuild -project $(PROJECT) -scheme $(SCHEME) -configuration Release -showBuildSettings 2>/dev/null | grep -m1 '^\s*BUILT_PRODUCTS_DIR' | sed 's/.*= //')
 APP_BUNDLE = $(BUILD_DIR)/$(APP_NAME).app
 
-TEAM_ID = ZX8SV23YKJ
-KEYCHAIN_PROFILE = notary
+KEYCHAIN_PROFILE ?= notary
 
 .PHONY: build notarize run clean
 

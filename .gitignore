@@ -10,3 +10,6 @@ DerivedData/
 # Local agent config
 .claude/settings.local.json
 CLAUDE.md
+
+# Local signing config
+Config/Local.xcconfig
