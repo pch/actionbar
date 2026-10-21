@@ -2,6 +2,7 @@ import SwiftUI
 
 struct MenuContentView: View {
     @EnvironmentObject var appState: AppState
+    @EnvironmentObject var updater: UpdaterService
     @State private var now = Date()
     @State private var showAbout = false
 
@@ -83,6 +84,7 @@ struct MenuContentView: View {
                 .foregroundColor(.secondary)
                 .popover(isPresented: $showAbout) {
                     AboutView()
+                        .environmentObject(updater)
                 }
 
                 Button("Sign Out") {
@@ -202,6 +204,7 @@ struct MenuContentView: View {
     ]
     return MenuContentView()
         .environmentObject(state)
+        .environmentObject(UpdaterService())
 }
 
 #Preview("Empty") {
@@ -210,6 +213,7 @@ struct MenuContentView: View {
     state.username = "octocat"
     return MenuContentView()
         .environmentObject(state)
+        .environmentObject(UpdaterService())
 }
 
 #Preview("Loading") {
@@ -219,4 +223,5 @@ struct MenuContentView: View {
     state.isLoading = true
     return MenuContentView()
         .environmentObject(state)
+        .environmentObject(UpdaterService())
 }

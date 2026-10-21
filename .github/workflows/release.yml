@@ -1,0 +1,163 @@
+name: Release
+
+# Push a tag like `v2.0` to build, sign, notarize and publish a release.
+# CHANGELOG.md must have a `## <version>` section; it becomes the release notes.
+# Tags with a suffix (`v2.0-pre1`) are published as GitHub pre-releases and use
+# the notes of the base version (`## 2.0`). Pre-releases never become "latest",
+# so the public download link and update feed keep pointing at the last stable release.
+#
+# Required repository secrets:
+#   DEVELOPER_ID_CERT_P12           Base64-encoded "Developer ID Application" certificate (.p12)
+#   DEVELOPER_ID_CERT_PASSWORD      Password for the .p12 file
+#   APPLE_ID                        Apple ID email used for notarization
+#   APPLE_APP_PASSWORD              App-specific password for that Apple ID
+#   APPLE_TEAM_ID                   Apple Developer Team ID
+#   SPARKLE_PRIVATE_KEY             Sparkle EdDSA private key (generate_keys -x)
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Set paths and version
+        run: |
+          {
+            echo "ARCHIVE_PATH=$RUNNER_TEMP/ActionBar.xcarchive"
+            echo "EXPORT_PATH=$RUNNER_TEMP/export"
+            echo "UPDATES_PATH=$RUNNER_TEMP/updates"
+            echo "SPM_PATH=$RUNNER_TEMP/spm"
+            echo "KEYCHAIN_PATH=$RUNNER_TEMP/signing.keychain-db"
+          } >> "$GITHUB_ENV"
+
+          VERSION="${GITHUB_REF_NAME#v}"
+          if ! [[ "$VERSION" =~ ^[0-9]+(\.[0-9]+)*(-[0-9A-Za-z.]+)?$ ]]; then
+            echo "Tag must look like v1.2, v1.2.3 or v1.2-pre1, got $GITHUB_REF_NAME" >&2
+            exit 1
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "NOTES_VERSION=${VERSION%%-*}" >> "$GITHUB_ENV"
+          if [[ "$VERSION" == *-* ]]; then
+            echo "PRERELEASE_FLAG=--prerelease" >> "$GITHUB_ENV"
+          fi
+          # Sparkle compares build numbers, so this must always increase.
+          echo "BUILD_NUMBER=$(git rev-list --count HEAD)" >> "$GITHUB_ENV"
+
+      - name: Extract release notes
+        run: |
+          mkdir -p "$UPDATES_PATH"
+          # Sparkle picks up notes named like the archive (ActionBar.md for ActionBar.dmg).
+          awk -v v="$NOTES_VERSION" '/^## / { if (found) exit; found = ($2 == v); next } found' CHANGELOG.md \
+            | sed -e '/./,$!d' > "$UPDATES_PATH/ActionBar.md"
+          if ! grep -q '[^[:space:]]' "$UPDATES_PATH/ActionBar.md"; then
+            echo "CHANGELOG.md has no notes for $NOTES_VERSION. Add a '## $NOTES_VERSION' section." >&2
+            exit 1
+          fi
+          cat "$UPDATES_PATH/ActionBar.md"
+
+      - name: Import signing certificate
+        env:
+          CERT_P12: ${{ secrets.DEVELOPER_ID_CERT_P12 }}
+          CERT_PASSWORD: ${{ secrets.DEVELOPER_ID_CERT_PASSWORD }}
+        run: |
+          KEYCHAIN_PASSWORD="$(uuidgen)"
+          echo "$CERT_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$RUNNER_TEMP/cert.p12" -P "$CERT_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH" "$HOME/Library/Keychains/login.keychain-db"
+          rm "$RUNNER_TEMP/cert.p12"
+
+      - name: Archive
+        run: |
+          xcodebuild -project ActionBar.xcodeproj -scheme ActionBar -configuration Release \
+            -destination 'generic/platform=macOS' \
+            -archivePath "$ARCHIVE_PATH" \
+            -clonedSourcePackagesDirPath "$SPM_PATH" \
+            DEVELOPMENT_TEAM="${{ secrets.APPLE_TEAM_ID }}" \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="Developer ID Application" \
+            MARKETING_VERSION="$VERSION" \
+            CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
+            archive
+
+      - name: Export app
+        run: |
+          xcodebuild -exportArchive \
+            -archivePath "$ARCHIVE_PATH" \
+            -exportPath "$EXPORT_PATH" \
+            -exportOptionsPlist Config/ExportOptions.plist
+
+      - name: Notarize app
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          ditto -c -k --keepParent "$EXPORT_PATH/ActionBar.app" "$RUNNER_TEMP/ActionBar.zip"
+          xcrun notarytool submit "$RUNNER_TEMP/ActionBar.zip" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_APP_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
+          xcrun stapler staple "$EXPORT_PATH/ActionBar.app"
+
+      - name: Create DMG
+        run: |
+          mkdir -p "$RUNNER_TEMP/dmg"
+          cp -R "$EXPORT_PATH/ActionBar.app" "$RUNNER_TEMP/dmg/"
+          ln -s /Applications "$RUNNER_TEMP/dmg/Applications"
+          hdiutil create -volname ActionBar -srcfolder "$RUNNER_TEMP/dmg" -ov -format UDZO "$UPDATES_PATH/ActionBar.dmg"
+          codesign --sign "Developer ID Application" --timestamp "$UPDATES_PATH/ActionBar.dmg"
+
+      - name: Notarize DMG
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          xcrun notarytool submit "$UPDATES_PATH/ActionBar.dmg" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_APP_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
+          xcrun stapler staple "$UPDATES_PATH/ActionBar.dmg"
+
+      - name: Generate appcast
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          echo "$SPARKLE_PRIVATE_KEY" | "$SPM_PATH/artifacts/sparkle/Sparkle/bin/generate_appcast" \
+            --ed-key-file - \
+            --embed-release-notes \
+            --download-url-prefix "https://github.com/$GITHUB_REPOSITORY/releases/download/$GITHUB_REF_NAME/" \
+            --full-release-notes-url "https://github.com/$GITHUB_REPOSITORY/releases/tag/$GITHUB_REF_NAME" \
+            "$UPDATES_PATH"
+          cat "$UPDATES_PATH/appcast.xml"
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            "$UPDATES_PATH/ActionBar.dmg" \
+            "$UPDATES_PATH/appcast.xml" \
+            --title "ActionBar $VERSION" \
+            --notes-file "$UPDATES_PATH/ActionBar.md" \
+            ${PRERELEASE_FLAG:+"$PRERELEASE_FLAG"}
+
+      - name: Clean up
+        if: always()
+        run: |
+          security delete-keychain "$KEYCHAIN_PATH" || true

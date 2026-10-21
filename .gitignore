@@ -2,7 +2,14 @@
 .swiftpm/
 *.app
 xcuserdata/
-*.xcodeproj/project.xcworkspace/
+*.xcodeproj/project.xcworkspace/xcuserdata/
 *.xcodeproj/xcuserdata/
 DerivedData/
 .DS_Store
+
+# Local agent config
+.claude/settings.local.json
+CLAUDE.md
+
+# Local signing config
+Config/Local.xcconfig

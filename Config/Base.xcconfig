@@ -1,0 +1,10 @@
+// Shared build settings for the ActionBar target.
+//
+// To build and sign with your own Apple Developer account, copy
+// Config/Local.xcconfig.example to Config/Local.xcconfig and fill it in.
+// Local.xcconfig is git-ignored.
+
+DEVELOPMENT_TEAM =
+PRODUCT_BUNDLE_IDENTIFIER = com.ptrchm.actionbar
+
+#include? "Local.xcconfig"
