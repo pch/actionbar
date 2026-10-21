@@ -57,14 +57,12 @@ It needs these repository secrets:
 
 | Secret | Value |
 | --- | --- |
-| `DEVELOPER_ID_CERT_P12` | "Developer ID Application" certificate exported from Keychain Access as `.p12`, base64-encoded |
-| `DEVELOPER_ID_CERT_PASSWORD` | Password for the `.p12` |
-| `ASC_API_KEY_P8` | App Store Connect API key (`.p8`), base64-encoded |
-| `ASC_KEY_ID` | App Store Connect API key ID |
-| `ASC_ISSUER_ID` | App Store Connect API issuer ID |
+| `APPLE_CERTIFICATE_P12` | "Developer ID Application" certificate exported from Keychain Access as `.p12`, base64-encoded |
+| `APPLE_CERTIFICATE_PASSWORD` | Password for the `.p12` |
+| `APPLE_ID` | Apple ID email used for notarization |
+| `APPLE_APP_PASSWORD` | [App-specific password](https://support.apple.com/en-us/102654) for that Apple ID |
+| `APPLE_TEAM_ID` | Apple Developer Team ID |
 | `SPARKLE_PRIVATE_KEY` | Sparkle EdDSA private key (`generate_keys --account actionbar -x key.txt`) |
-
-and the repository variable `APPLE_TEAM_ID`.
 
 ## License
 
