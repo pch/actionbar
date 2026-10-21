@@ -7,7 +7,7 @@ struct StatusDotView: View {
 
     var body: some View {
         Circle()
-            .fill(color)
+            .fill(Color(nsColor: status.color))
             .frame(width: 8, height: 8)
             .opacity(isPulsing && status == .running ? 0.4 : 1.0)
             .animation(
@@ -16,25 +16,9 @@ struct StatusDotView: View {
                     : .default,
                 value: isPulsing
             )
-            .onAppear {
-                if status == .running {
-                    isPulsing = true
-                }
-            }
-            .onChange(of: status) {
+            .onChange(of: status, initial: true) {
                 isPulsing = status == .running
             }
-    }
-
-    private var color: Color {
-        switch status {
-        case .success: return .green
-        case .failure: return .red
-        case .running: return .orange
-        case .queued: return .yellow
-        case .cancelled: return .gray
-        case .unknown: return .gray
-        }
     }
 }
 

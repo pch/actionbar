@@ -1,50 +1,10 @@
 import Foundation
 
-// MARK: - Device Flow Response Models
-
-struct DeviceCodeResponse: Decodable {
-    let deviceCode: String
-    let userCode: String
-    let verificationUri: String
-    let expiresIn: Int
-    let interval: Int
-
-    enum CodingKeys: String, CodingKey {
-        case deviceCode = "device_code"
-        case userCode = "user_code"
-        case verificationUri = "verification_uri"
-        case expiresIn = "expires_in"
-        case interval
-    }
-
-    init(deviceCode: String, userCode: String, verificationUri: String, expiresIn: Int, interval: Int) {
-        self.deviceCode = deviceCode
-        self.userCode = userCode
-        self.verificationUri = verificationUri
-        self.expiresIn = expiresIn
-        self.interval = interval
-    }
+/// The GitHub App ActionBar signs in through. Forks must register their own app and update these values.
+enum GitHubApp {
+    static let clientID = "Iv23liMJQvDNiRMhbNes"
+    static let installationURL = URL(string: "https://github.com/apps/actionbar-macos")!
 }
-
-struct OAuthTokenResponse: Decodable {
-    let accessToken: String?
-    let tokenType: String?
-    let scope: String?
-    let error: String?
-    let errorDescription: String?
-    let interval: Int?
-
-    enum CodingKeys: String, CodingKey {
-        case accessToken = "access_token"
-        case tokenType = "token_type"
-        case scope
-        case error
-        case errorDescription = "error_description"
-        case interval
-    }
-}
-
-// MARK: - OAuth Errors
 
 enum OAuthError: Error, LocalizedError {
     case codeRequestFailed(Int)
@@ -69,31 +29,21 @@ enum OAuthError: Error, LocalizedError {
     }
 }
 
-// MARK: - OAuth Service
+/// Signs in with the OAuth device flow:
+/// https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps#device-flow
+struct OAuthService {
+    private static let deviceCodeURL = URL(string: "https://github.com/login/device/code")!
+    private static let accessTokenURL = URL(string: "https://github.com/login/oauth/access_token")!
 
-actor OAuthService {
-    static let clientID = "Iv23liMJQvDNiRMhbNes"
+    private let decoder: JSONDecoder = {
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        return decoder
+    }()
 
     func requestDeviceCode() async throws -> DeviceCodeResponse {
-        var request = URLRequest(url: URL(string: "https://github.com/login/device/code")!)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-
-        let body: [String: String] = [
-            "client_id": Self.clientID,
-        ]
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
-
-        let (data, response) = try await perform(request)
-
-        guard let httpResponse = response as? HTTPURLResponse,
-              httpResponse.statusCode == 200 else {
-            let code = (response as? HTTPURLResponse)?.statusCode ?? 0
-            throw OAuthError.codeRequestFailed(code)
-        }
-
-        return try JSONDecoder().decode(DeviceCodeResponse.self, from: data)
+        let data = try await post(Self.deviceCodeURL, body: ["client_id": GitHubApp.clientID])
+        return try decoder.decode(DeviceCodeResponse.self, from: data)
     }
 
     func pollForToken(deviceCode: String, interval: Int) async throws -> String {
@@ -101,30 +51,15 @@ actor OAuthService {
 
         while true {
             try Task.checkCancellation()
-            try await Task.sleep(nanoseconds: UInt64(pollInterval) * 1_000_000_000)
+            try await Task.sleep(for: .seconds(pollInterval))
             try Task.checkCancellation()
 
-            var request = URLRequest(url: URL(string: "https://github.com/login/oauth/access_token")!)
-            request.httpMethod = "POST"
-            request.setValue("application/json", forHTTPHeaderField: "Accept")
-            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-
-            let body: [String: String] = [
-                "client_id": Self.clientID,
+            let data = try await post(Self.accessTokenURL, body: [
+                "client_id": GitHubApp.clientID,
                 "device_code": deviceCode,
-                "grant_type": "urn:ietf:params:oauth:grant-type:device_code"
-            ]
-            request.httpBody = try JSONSerialization.data(withJSONObject: body)
-
-            let (data, response) = try await perform(request)
-
-            guard let httpResponse = response as? HTTPURLResponse,
-                  httpResponse.statusCode == 200 else {
-                let code = (response as? HTTPURLResponse)?.statusCode ?? 0
-                throw OAuthError.codeRequestFailed(code)
-            }
-
-            let tokenResponse = try JSONDecoder().decode(OAuthTokenResponse.self, from: data)
+                "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
+            ])
+            let tokenResponse = try decoder.decode(OAuthTokenResponse.self, from: data)
 
             if let token = tokenResponse.accessToken {
                 return token
@@ -135,7 +70,6 @@ actor OAuthService {
                 continue
             case "slow_down":
                 pollInterval = (tokenResponse.interval ?? pollInterval) + 5
-                continue
             case "expired_token":
                 throw OAuthError.expired
             case "access_denied":
@@ -148,11 +82,25 @@ actor OAuthService {
         }
     }
 
-    private func perform(_ request: URLRequest) async throws -> (Data, URLResponse) {
+    private func post(_ url: URL, body: [String: String]) async throws -> Data {
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let data: Data
+        let response: URLResponse
         do {
-            return try await URLSession.shared.data(for: request)
+            (data, response) = try await URLSession.shared.data(for: request)
         } catch {
             throw OAuthError.networkError(error)
         }
+
+        let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
+        guard statusCode == 200 else {
+            throw OAuthError.codeRequestFailed(statusCode)
+        }
+        return data
     }
 }

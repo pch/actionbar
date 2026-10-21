@@ -1,7 +1,9 @@
 import SwiftUI
 
 struct AboutView: View {
-    @EnvironmentObject var updater: UpdaterService
+    @EnvironmentObject private var updater: UpdaterService
+
+    private static let websiteURL = URL(string: "https://ptrchm.com/actionbar/")!
 
     private var appVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
@@ -14,15 +16,10 @@ struct AboutView: View {
 
             Text("Version \(appVersion)")
                 .font(.caption)
-                .foregroundColor(.secondary)
+                .foregroundStyle(.secondary)
 
-            Button("Website") {
-                if let url = URL(string: "https://ptrchm.com/actionbar/") {
-                    NSWorkspace.shared.open(url)
-                }
-            }
-            .font(.caption)
-            .buttonStyle(.link)
+            Link("Website", destination: Self.websiteURL)
+                .font(.caption)
 
             Button("Check for Updates…") {
                 updater.checkForUpdates()

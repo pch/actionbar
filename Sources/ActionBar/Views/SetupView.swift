@@ -1,7 +1,8 @@
 import SwiftUI
 
 struct SetupView: View {
-    @EnvironmentObject var appState: AppState
+    @EnvironmentObject private var appState: AppState
+    @Environment(\.openURL) private var openURL
 
     var body: some View {
         VStack(spacing: 16) {
@@ -19,171 +20,143 @@ struct SetupView: View {
 
     // MARK: - Initial State
 
+    @ViewBuilder
     private var initialView: some View {
-        Group {
-            Image(nsImage: MenuBarIcon.makeMenuBarIcon())
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .frame(width: 32, height: 32)
+        Image(nsImage: MenuBarIcon.image())
+            .resizable()
+            .aspectRatio(contentMode: .fit)
+            .frame(width: 32, height: 32)
 
-            Text("ActionBar")
-                .font(.headline)
+        Text("ActionBar")
+            .font(.headline)
 
-            Text("Monitor your GitHub Actions workflow runs.")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
+        explanation("Monitor your GitHub Actions workflow runs.")
 
-            Button(action: { appState.loginWithGitHub() }) {
+        Button {
+            appState.loginWithGitHub()
+        } label: {
+            Group {
                 if appState.isLoggingIn {
                     ProgressView()
                         .controlSize(.small)
-                        .frame(maxWidth: .infinity)
                 } else {
                     Text("Login with GitHub")
-                        .frame(maxWidth: .infinity)
                 }
             }
-            .buttonStyle(.borderedProminent)
-            .disabled(appState.isLoggingIn)
-            .keyboardShortcut(.defaultAction)
-
-            if let error = appState.errorMessage {
-                Text(error)
-                    .font(.caption)
-                    .foregroundColor(.red)
-                    .multilineTextAlignment(.center)
-            }
-
-            Button("Quit") {
-                NSApplication.shared.terminate(nil)
-            }
-            .font(.caption)
-            .buttonStyle(.plain)
-            .foregroundColor(.secondary)
+            .frame(maxWidth: .infinity)
         }
+        .buttonStyle(.borderedProminent)
+        .disabled(appState.isLoggingIn)
+        .keyboardShortcut(.defaultAction)
+
+        errorText
+
+        QuitButton()
     }
 
     // MARK: - Installation Required
 
+    @ViewBuilder
     private var installationView: some View {
-        Group {
-            Image(systemName: "puzzlepiece.extension")
-                .font(.system(size: 28))
-                .foregroundColor(.accentColor)
+        Image(systemName: "puzzlepiece.extension")
+            .font(.system(size: 28))
+            .foregroundStyle(Color.accentColor)
 
-            Text("Install the App")
-                .font(.headline)
+        Text("Install the App")
+            .font(.headline)
 
-            Text("ActionBar needs to be installed on your GitHub account to access workflow data.")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
+        explanation("ActionBar needs to be installed on your GitHub account to access workflow data.")
 
-            Button(action: { appState.openInstallationPage() }) {
-                Text("Install on GitHub")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-            .keyboardShortcut(.defaultAction)
-
-            Text("After installing, it may take up to a minute for GitHub to reflect the change.")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-
-            Button(action: { appState.checkInstallationAndStart() }) {
-                Text("Check Again")
-            }
-            .font(.caption)
-            .buttonStyle(.plain)
-            .foregroundColor(.accentColor)
-            .disabled(appState.isCheckingInstallation)
-
-            if let error = appState.errorMessage {
-                Text(error)
-                    .font(.caption)
-                    .foregroundColor(.red)
-                    .multilineTextAlignment(.center)
-            }
-
-            Button("Sign Out") {
-                appState.signOut()
-            }
-            .font(.caption)
-            .buttonStyle(.plain)
-            .foregroundColor(.secondary)
-
-            Button("Quit") {
-                NSApplication.shared.terminate(nil)
-            }
-            .font(.caption)
-            .buttonStyle(.plain)
-            .foregroundColor(.secondary)
+        Button {
+            openURL(GitHubApp.installationURL)
+        } label: {
+            Text("Install on GitHub")
+                .frame(maxWidth: .infinity)
         }
+        .buttonStyle(.borderedProminent)
+        .keyboardShortcut(.defaultAction)
+
+        explanation("After installing, it may take up to a minute for GitHub to reflect the change.")
+
+        Button("Check Again") {
+            appState.checkInstallationAndStart()
+        }
+        .textButtonStyle(.accentColor)
+        .disabled(appState.isCheckingInstallation)
+
+        errorText
+
+        Button("Sign Out") {
+            appState.signOut()
+        }
+        .textButtonStyle()
+
+        QuitButton()
     }
 
     // MARK: - Device Code State
 
+    @ViewBuilder
     private func deviceCodeView(_ code: DeviceCodeResponse) -> some View {
-        Group {
-            Text("Enter this code on GitHub:")
-                .font(.headline)
+        Text("Enter this code on GitHub:")
+            .font(.headline)
 
-            HStack(spacing: 8) {
-                Text(code.userCode)
-                    .font(.system(size: 20, weight: .bold, design: .monospaced))
-                    .textSelection(.enabled)
+        HStack(spacing: 8) {
+            Text(code.userCode)
+                .font(.system(size: 20, weight: .bold, design: .monospaced))
+                .textSelection(.enabled)
 
-                Button(action: {
-                    NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(code.userCode, forType: .string)
-                }) {
-                    Image(systemName: "doc.on.doc")
-                }
-                .buttonStyle(.borderless)
-                .help("Copy code")
+            Button("Copy code", systemImage: "doc.on.doc") {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(code.userCode, forType: .string)
             }
+            .labelStyle(.iconOnly)
+            .buttonStyle(.borderless)
+            .help("Copy code")
+        }
 
-            Text("A browser window has opened where you can enter the code above.")
+        explanation("A browser window has opened where you can enter the code above.")
+
+        Button("Open GitHub") {
+            if let url = URL(string: code.verificationUri) {
+                openURL(url)
+            }
+        }
+        .buttonStyle(.link)
+
+        HStack(spacing: 8) {
+            ProgressView()
+                .controlSize(.small)
+            Text("Waiting for authorization...")
                 .font(.caption)
-                .foregroundColor(.secondary)
+                .foregroundStyle(.secondary)
+        }
+
+        Button("Cancel") {
+            appState.cancelLogin()
+        }
+        .textButtonStyle()
+
+        QuitButton()
+    }
+
+    // MARK: - Shared
+
+    private func explanation(_ text: String) -> some View {
+        Text(text)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .multilineTextAlignment(.center)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    @ViewBuilder
+    private var errorText: some View {
+        if let error = appState.errorMessage {
+            Text(error)
+                .font(.caption)
+                .foregroundStyle(.red)
                 .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-
-            Button(action: {
-                if let url = URL(string: code.verificationUri) {
-                    NSWorkspace.shared.open(url)
-                }
-            }) {
-                Text("Open GitHub")
-            }
-            .buttonStyle(.link)
-
-            HStack(spacing: 8) {
-                ProgressView()
-                    .controlSize(.small)
-                Text("Waiting for authorization...")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-
-            Button("Cancel") {
-                appState.cancelLogin()
-            }
-            .font(.caption)
-            .buttonStyle(.plain)
-            .foregroundColor(.secondary)
-
-            Button("Quit") {
-                NSApplication.shared.terminate(nil)
-            }
-            .font(.caption)
-            .buttonStyle(.plain)
-            .foregroundColor(.secondary)
         }
     }
 }
@@ -199,7 +172,6 @@ struct SetupView: View {
         deviceCode: "abc123",
         userCode: "ABCD-1234",
         verificationUri: "https://github.com/login/device",
-        expiresIn: 900,
         interval: 5
     )
     return SetupView()
