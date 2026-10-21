@@ -99,6 +99,11 @@ jobs:
             -exportPath "$EXPORT_PATH" \
             -exportOptionsPlist Config/ExportOptions.plist
 
+          # The app aborts at launch if dyld can't find Sparkle.
+          APP="$EXPORT_PATH/ActionBar.app"
+          test -d "$APP/Contents/Frameworks/Sparkle.framework"
+          otool -l "$APP/Contents/MacOS/ActionBar" | grep -q '@executable_path/../Frameworks'
+
       - name: Notarize app
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
