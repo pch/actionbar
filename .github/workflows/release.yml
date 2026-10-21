@@ -20,19 +20,21 @@ permissions:
 jobs:
   release:
     runs-on: macos-26
-    env:
-      ARCHIVE_PATH: ${{ runner.temp }}/ActionBar.xcarchive
-      EXPORT_PATH: ${{ runner.temp }}/export
-      UPDATES_PATH: ${{ runner.temp }}/updates
-      SPM_PATH: ${{ runner.temp }}/spm
-      KEYCHAIN_PATH: ${{ runner.temp }}/signing.keychain-db
     steps:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
-      - name: Set version
+      - name: Set paths and version
         run: |
+          {
+            echo "ARCHIVE_PATH=$RUNNER_TEMP/ActionBar.xcarchive"
+            echo "EXPORT_PATH=$RUNNER_TEMP/export"
+            echo "UPDATES_PATH=$RUNNER_TEMP/updates"
+            echo "SPM_PATH=$RUNNER_TEMP/spm"
+            echo "KEYCHAIN_PATH=$RUNNER_TEMP/signing.keychain-db"
+          } >> "$GITHUB_ENV"
+
           VERSION="${GITHUB_REF_NAME#v}"
           if ! [[ "$VERSION" =~ ^[0-9]+(\.[0-9]+)*$ ]]; then
             echo "Tag must look like v1.2 or v1.2.3, got $GITHUB_REF_NAME" >&2
@@ -54,7 +56,7 @@ jobs:
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security import "$RUNNER_TEMP/cert.p12" -P "$CERT_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
           security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          security list-keychains -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | tr -d '"')
+          security list-keychains -d user -s "$KEYCHAIN_PATH" "$HOME/Library/Keychains/login.keychain-db"
           rm "$RUNNER_TEMP/cert.p12"
 
       - name: Archive
