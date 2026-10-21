@@ -2,6 +2,9 @@ name: Release
 
 # Push a tag like `v2.0` to build, sign, notarize and publish a release.
 # CHANGELOG.md must have a `## <version>` section; it becomes the release notes.
+# Tags with a suffix (`v2.0-pre1`) are published as GitHub pre-releases and use
+# the notes of the base version (`## 2.0`). Pre-releases never become "latest",
+# so the public download link and update feed keep pointing at the last stable release.
 #
 # Required repository secrets:
 #   DEVELOPER_ID_CERT_P12           Base64-encoded "Developer ID Application" certificate (.p12)
@@ -37,11 +40,15 @@ jobs:
           } >> "$GITHUB_ENV"
 
           VERSION="${GITHUB_REF_NAME#v}"
-          if ! [[ "$VERSION" =~ ^[0-9]+(\.[0-9]+)*$ ]]; then
-            echo "Tag must look like v1.2 or v1.2.3, got $GITHUB_REF_NAME" >&2
+          if ! [[ "$VERSION" =~ ^[0-9]+(\.[0-9]+)*(-[0-9A-Za-z.]+)?$ ]]; then
+            echo "Tag must look like v1.2, v1.2.3 or v1.2-pre1, got $GITHUB_REF_NAME" >&2
             exit 1
           fi
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "NOTES_VERSION=${VERSION%%-*}" >> "$GITHUB_ENV"
+          if [[ "$VERSION" == *-* ]]; then
+            echo "PRERELEASE_FLAG=--prerelease" >> "$GITHUB_ENV"
+          fi
           # Sparkle compares build numbers, so this must always increase.
           echo "BUILD_NUMBER=$(git rev-list --count HEAD)" >> "$GITHUB_ENV"
 
@@ -49,10 +56,10 @@ jobs:
         run: |
           mkdir -p "$UPDATES_PATH"
           # Sparkle picks up notes named like the archive (ActionBar.md for ActionBar.dmg).
-          awk -v v="$VERSION" '/^## / { if (found) exit; found = ($2 == v); next } found' CHANGELOG.md \
+          awk -v v="$NOTES_VERSION" '/^## / { if (found) exit; found = ($2 == v); next } found' CHANGELOG.md \
             | sed -e '/./,$!d' > "$UPDATES_PATH/ActionBar.md"
           if ! grep -q '[^[:space:]]' "$UPDATES_PATH/ActionBar.md"; then
-            echo "CHANGELOG.md has no notes for $VERSION. Add a '## $VERSION' section." >&2
+            echo "CHANGELOG.md has no notes for $NOTES_VERSION. Add a '## $NOTES_VERSION' section." >&2
             exit 1
           fi
           cat "$UPDATES_PATH/ActionBar.md"
@@ -147,7 +154,8 @@ jobs:
             "$UPDATES_PATH/ActionBar.dmg" \
             "$UPDATES_PATH/appcast.xml" \
             --title "ActionBar $VERSION" \
-            --notes-file "$UPDATES_PATH/ActionBar.md"
+            --notes-file "$UPDATES_PATH/ActionBar.md" \
+            ${PRERELEASE_FLAG:+"$PRERELEASE_FLAG"}
 
       - name: Clean up
         if: always()
