@@ -2,8 +2,7 @@ import AppKit
 import UserNotifications
 
 final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
-    private var windowObserver: Any?
-    private var configuredPanels = NSHashTable<NSPanel>.weakObjects()
+    private var windowObserver: NSObjectProtocol?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         UNUserNotificationCenter.current().delegate = self
@@ -14,14 +13,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             forName: NSWindow.didBecomeKeyNotification,
             object: nil,
             queue: .main
-        ) { [weak self] notification in
-            guard let panel = notification.object as? NSPanel else { return }
-            guard !panel.isKind(of: NSOpenPanel.self) else { return }
-            guard let self, !self.configuredPanels.contains(panel) else { return }
-            panel.collectionBehavior.insert(
-                [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary]
-            )
-            self.configuredPanels.add(panel)
+        ) { notification in
+            let behavior: NSWindow.CollectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary]
+            guard let panel = notification.object as? NSPanel, !(panel is NSOpenPanel),
+                  !panel.collectionBehavior.contains(behavior) else { return }
+            panel.collectionBehavior.insert(behavior)
         }
     }
 

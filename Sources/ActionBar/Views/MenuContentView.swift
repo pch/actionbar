@@ -1,114 +1,113 @@
 import SwiftUI
 
 struct MenuContentView: View {
-    @EnvironmentObject var appState: AppState
-    @EnvironmentObject var updater: UpdaterService
+    @EnvironmentObject private var appState: AppState
+    @EnvironmentObject private var updater: UpdaterService
     @State private var now = Date()
     @State private var showAbout = false
-
-    private let tickTimer = Timer.publish(every: 30, on: .main, in: .common).autoconnect()
 
     var body: some View {
         if appState.isAuthenticated && !appState.needsInstallation {
             authenticatedView
         } else {
             SetupView()
-                .environmentObject(appState)
         }
     }
 
     private var authenticatedView: some View {
         VStack(spacing: 0) {
-            if !appState.showingSettings {
-                // Header
-                HStack {
-                    Text("GitHub Actions")
-                        .font(.headline)
-                    Spacer()
-                    if appState.isLoading {
-                        ProgressView()
-                            .controlSize(.small)
-                    }
-                    Button(action: { appState.refreshNow() }) {
-                        Image(systemName: "arrow.clockwise")
-                            .font(.system(size: 11))
-                    }
-                    .buttonStyle(.plain)
-                    .help("Refresh now")
-                    Button(action: {
-                        appState.showingSettings = true
-                        appState.fetchAvailableRepos()
-                    }) {
-                        Image(systemName: "gearshape")
-                            .font(.system(size: 11))
-                    }
-                    .buttonStyle(.plain)
-                    .help("Settings")
-                }
-                .padding(.horizontal, 16)
-                .padding(.top, 12)
-                .padding(.bottom, 8)
-
-                Divider()
-            }
-
-            // Content
             if appState.showingSettings {
                 SettingsView()
                     .frame(minHeight: 520)
-            } else if let error = appState.errorMessage {
-                errorView(error)
-            } else if appState.runs.isEmpty && appState.isLoading {
-                loadingView
-            } else if appState.runs.isEmpty {
-                emptyView
             } else {
-                runsList
+                header
+                Divider()
+                content
             }
 
             Divider()
 
-            // Footer
-            HStack(spacing: 16) {
-                if let username = appState.username {
-                    Text(username)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                Spacer()
-                Button("About") {
-                    showAbout.toggle()
-                }
-                .font(.caption)
-                .buttonStyle(.plain)
-                .foregroundColor(.secondary)
-                .popover(isPresented: $showAbout) {
-                    AboutView()
-                        .environmentObject(updater)
-                }
-
-                Button("Sign Out") {
-                    appState.signOut()
-                }
-                .font(.caption)
-                .buttonStyle(.plain)
-                .foregroundColor(.secondary)
-
-                Button("Quit") {
-                    NSApplication.shared.terminate(nil)
-                }
-                .font(.caption)
-                .buttonStyle(.plain)
-                .foregroundColor(.secondary)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
+            footer
         }
         .frame(width: 340)
-        .onReceive(tickTimer) { now = $0 }
+        .task {
+            // Keep relative timestamps fresh while the menu is open.
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(30))
+                now = Date()
+            }
+        }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
             now = Date()
         }
+    }
+
+    private var header: some View {
+        HStack {
+            Text("GitHub Actions")
+                .font(.headline)
+            Spacer()
+            if appState.isLoading {
+                ProgressView()
+                    .controlSize(.small)
+            }
+            Button("Refresh now", systemImage: "arrow.clockwise") {
+                appState.refreshNow()
+            }
+            .help("Refresh now")
+            Button("Settings", systemImage: "gearshape") {
+                appState.showingSettings = true
+                appState.fetchAvailableRepos()
+            }
+            .help("Settings")
+        }
+        .labelStyle(.iconOnly)
+        .buttonStyle(.plain)
+        .font(.system(size: 11))
+        .padding(.horizontal, 16)
+        .padding(.top, 12)
+        .padding(.bottom, 8)
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        if let error = appState.errorMessage {
+            errorView(error)
+        } else if appState.runs.isEmpty && appState.isLoading {
+            loadingView
+        } else if appState.runs.isEmpty {
+            emptyView
+        } else {
+            runsList
+        }
+    }
+
+    private var footer: some View {
+        HStack(spacing: 16) {
+            if let username = appState.username {
+                Text(username)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Button("About") {
+                showAbout.toggle()
+            }
+            .textButtonStyle()
+            .popover(isPresented: $showAbout) {
+                AboutView()
+                    .environmentObject(updater)
+            }
+
+            Button("Sign Out") {
+                appState.signOut()
+            }
+            .textButtonStyle()
+
+            QuitButton()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
     }
 
     private var runsList: some View {
@@ -136,10 +135,10 @@ struct MenuContentView: View {
         VStack(spacing: 8) {
             Image(systemName: "exclamationmark.triangle")
                 .font(.system(size: 20))
-                .foregroundColor(.orange)
+                .foregroundStyle(.orange)
             Text(message)
                 .font(.caption)
-                .foregroundColor(.secondary)
+                .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
             Button("Retry") {
                 appState.refreshNow()
@@ -154,7 +153,7 @@ struct MenuContentView: View {
             ProgressView()
             Text("Loading workflows...")
                 .font(.caption)
-                .foregroundColor(.secondary)
+                .foregroundStyle(.secondary)
         }
         .padding(30)
     }
@@ -163,11 +162,10 @@ struct MenuContentView: View {
         VStack(spacing: 8) {
             Image(systemName: "tray")
                 .font(.system(size: 20))
-                .foregroundColor(.secondary)
             Text("No workflow runs found")
                 .font(.caption)
-                .foregroundColor(.secondary)
         }
+        .foregroundStyle(.secondary)
         .padding(30)
     }
 }

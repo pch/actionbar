@@ -1,39 +1,5 @@
 import Foundation
 
-// MARK: - API Response Models
-
-struct ReposResponse: Decodable {
-    // Used for array decoding — GitHub returns [Repository]
-}
-
-struct Repository: Decodable, Hashable, Identifiable {
-    let id: Int
-    let fullName: String
-    let htmlUrl: String
-
-    enum CodingKeys: String, CodingKey {
-        case id
-        case fullName = "full_name"
-        case htmlUrl = "html_url"
-    }
-
-    init(id: Int, fullName: String, htmlUrl: String) {
-        self.id = id
-        self.fullName = fullName
-        self.htmlUrl = htmlUrl
-    }
-}
-
-struct WorkflowRunsResponse: Decodable {
-    let totalCount: Int
-    let workflowRuns: [WorkflowRun]
-
-    enum CodingKeys: String, CodingKey {
-        case totalCount = "total_count"
-        case workflowRuns = "workflow_runs"
-    }
-}
-
 struct WorkflowRun: Decodable, Identifiable, Hashable {
     let id: Int
     let name: String?
@@ -48,24 +14,17 @@ struct WorkflowRun: Decodable, Identifiable, Hashable {
     let repositoryFullName: String
     let triggeringActorLogin: String?
 
-    enum CodingKeys: String, CodingKey {
-        case id
-        case name
-        case displayTitle = "display_title"
-        case status
-        case conclusion
-        case event
-        case htmlUrl = "html_url"
-        case headBranch = "head_branch"
-        case createdAt = "created_at"
-        case updatedAt = "updated_at"
-        case repository
-        case actor
-        case triggeringActor = "triggering_actor"
+    var title: String {
+        displayTitle ?? name ?? "Workflow"
     }
 
-    enum RepositoryCodingKeys: String, CodingKey {
-        case fullName = "full_name"
+    private enum CodingKeys: String, CodingKey {
+        case id, name, displayTitle, status, conclusion, event, htmlUrl, headBranch, createdAt, updatedAt
+        case repository, actor, triggeringActor
+    }
+
+    private struct RepositoryRef: Decodable {
+        let fullName: String
     }
 
     private struct Actor: Decodable {
@@ -84,8 +43,7 @@ struct WorkflowRun: Decodable, Identifiable, Hashable {
         headBranch = try container.decodeIfPresent(String.self, forKey: .headBranch)
         createdAt = try container.decode(Date.self, forKey: .createdAt)
         updatedAt = try container.decode(Date.self, forKey: .updatedAt)
-        let repoContainer = try container.nestedContainer(keyedBy: RepositoryCodingKeys.self, forKey: .repository)
-        repositoryFullName = try repoContainer.decode(String.self, forKey: .fullName)
+        repositoryFullName = try container.decode(RepositoryRef.self, forKey: .repository).fullName
         let actor = try container.decodeIfPresent(Actor.self, forKey: .actor)
         let triggeringActor = try container.decodeIfPresent(Actor.self, forKey: .triggeringActor)
         triggeringActorLogin = triggeringActor?.login ?? actor?.login
@@ -107,14 +65,6 @@ struct WorkflowRun: Decodable, Identifiable, Hashable {
         self.repositoryFullName = repositoryFullName
         self.triggeringActorLogin = triggeringActorLogin
     }
-}
-
-// MARK: - Workflow Filter Mode
-
-enum WorkflowFilterMode: String, CaseIterable {
-    case off
-    case include
-    case exclude
 }
 
 // MARK: - Run Status
@@ -159,42 +109,61 @@ enum RunStatus {
         case .unknown: return "Unknown"
         }
     }
-}
 
-// MARK: - GitHub App Installation Models
-
-struct InstallationsResponse: Decodable {
-    let totalCount: Int
-    let installations: [AppInstallation]
-
-    enum CodingKeys: String, CodingKey {
-        case totalCount = "total_count"
-        case installations
+    var isActive: Bool {
+        self == .running || self == .queued
     }
 }
 
-struct AppInstallation: Decodable {
-    let id: Int
-    let account: Account
+// MARK: - Filtering
 
-    struct Account: Decodable {
-        let login: String
-    }
+enum WorkflowFilterMode: String, CaseIterable {
+    case off
+    case include
+    case exclude
 }
 
-struct InstallationRepositoriesResponse: Decodable {
-    let totalCount: Int
-    let repositories: [Repository]
+extension Array where Element == WorkflowRun {
+    /// Keeps or drops runs whose workflow name contains any of the comma-separated patterns (case-insensitive).
+    func filtered(by mode: WorkflowFilterMode, patterns: String) -> [WorkflowRun] {
+        guard mode != .off else { return self }
 
-    enum CodingKeys: String, CodingKey {
-        case totalCount = "total_count"
-        case repositories
+        let patterns = patterns
+            .split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespaces).lowercased() }
+            .filter { !$0.isEmpty }
+
+        guard !patterns.isEmpty else { return self }
+
+        return filter { run in
+            let name = (run.name ?? "").lowercased()
+            let matches = patterns.contains { name.contains($0) }
+            return mode == .include ? matches : !matches
+        }
     }
-}
 
-// MARK: - GitHub User (for token validation)
+    /// Keeps at most `limit` runs per repository, preserving order.
+    func limited(toRunsPerRepo limit: Int) -> [WorkflowRun] {
+        var countsByRepo: [String: Int] = [:]
+        return filter { run in
+            let count = countsByRepo[run.repositoryFullName, default: 0]
+            guard count < limit else { return false }
+            countsByRepo[run.repositoryFullName] = count + 1
+            return true
+        }
+    }
 
-struct GitHubUser: Decodable {
-    let login: String
-    let id: Int
+    /// Running if anything is in flight, otherwise the outcome of the most recently finished run.
+    var overallStatus: RunStatus {
+        if contains(where: { RunStatus(from: $0).isActive }) {
+            return .running
+        }
+
+        guard let lastFinishedRun = filter({ $0.status == "completed" })
+            .max(by: { $0.updatedAt < $1.updatedAt }) else {
+            return .unknown
+        }
+
+        return RunStatus(from: lastFinishedRun)
+    }
 }

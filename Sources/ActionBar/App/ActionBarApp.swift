@@ -2,7 +2,7 @@ import SwiftUI
 
 @main
 struct ActionBarApp: App {
-    @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var appState = AppState()
     @StateObject private var updater = UpdaterService()
 
@@ -19,17 +19,15 @@ struct ActionBarApp: App {
     }
 }
 
-struct MenuBarLabel: View {
+private struct MenuBarLabel: View {
     @ObservedObject var appState: AppState
 
     var body: some View {
-        Image(nsImage: makeIcon())
+        Image(nsImage: MenuBarIcon.image(statusDotColor: statusDotColor))
     }
 
-    private func makeIcon() -> NSImage {
-        let dotColor: NSColor? = appState.isAuthenticated && !appState.runs.isEmpty
-            ? MenuBarIcon.statusColor(for: appState.overallStatus)
-            : nil
-        return MenuBarIcon.makeMenuBarIcon(statusDotColor: dotColor)
+    private var statusDotColor: NSColor? {
+        guard appState.isAuthenticated && !appState.runs.isEmpty else { return nil }
+        return appState.overallStatus.color
     }
 }

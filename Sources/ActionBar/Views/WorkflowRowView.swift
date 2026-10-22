@@ -2,30 +2,39 @@ import SwiftUI
 
 struct WorkflowRowView: View {
     let run: WorkflowRun
-    var now: Date = Date()
+    var now = Date()
     var showsTriggeringActor = false
 
+    @Environment(\.openURL) private var openURL
     @State private var isHovered = false
 
     var body: some View {
+        Button {
+            if let url = URL(string: run.htmlUrl) {
+                openURL(url)
+            }
+        } label: {
+            content
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovered = $0 }
+    }
+
+    private var content: some View {
         HStack(spacing: 8) {
             StatusDotView(status: RunStatus(from: run))
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(run.displayTitle ?? run.name ?? "Workflow")
+                Text(run.title)
                     .font(.system(size: 12, weight: .medium))
                     .lineLimit(1)
 
                 HStack(spacing: 4) {
                     Text(repoName)
-                        .font(.system(size: 10))
-                        .foregroundColor(.secondary)
 
                     if showsTriggeringActor, let login = run.triggeringActorLogin {
                         metadataSeparator
                         Text("@\(login)")
-                            .font(.system(size: 10))
-                            .foregroundColor(.secondary)
                             .lineLimit(1)
                     }
 
@@ -33,17 +42,18 @@ struct WorkflowRowView: View {
                         metadataSeparator
                         Text(branch)
                             .font(.system(size: 10, design: .monospaced))
-                            .foregroundColor(.secondary)
                             .lineLimit(1)
                     }
                 }
+                .font(.system(size: 10))
+                .foregroundStyle(.secondary)
             }
 
             Spacer()
 
             Text(RelativeTime.format(run.updatedAt, relativeTo: now))
                 .font(.system(size: 10))
-                .foregroundColor(.secondary)
+                .foregroundStyle(.secondary)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 6)
@@ -54,28 +64,15 @@ struct WorkflowRowView: View {
                 .padding(.vertical, 4)
         )
         .contentShape(Rectangle())
-        .onHover { hovering in
-            isHovered = hovering
-        }
-        .onTapGesture {
-            if let url = URL(string: run.htmlUrl) {
-                NSWorkspace.shared.open(url)
-            }
-        }
     }
 
     private var metadataSeparator: some View {
         Text("·")
-            .font(.system(size: 10))
-            .foregroundColor(.secondary)
     }
 
+    /// The repository name without its owner, to save space.
     private var repoName: String {
-        // Show only repo name (without owner) to save space
-        if let slashIndex = run.repositoryFullName.firstIndex(of: "/") {
-            return String(run.repositoryFullName[run.repositoryFullName.index(after: slashIndex)...])
-        }
-        return run.repositoryFullName
+        run.repositoryFullName.split(separator: "/", maxSplits: 1).last.map(String.init) ?? run.repositoryFullName
     }
 }
 

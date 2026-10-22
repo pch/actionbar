@@ -40,7 +40,7 @@ Requirements: macOS 14+ and a recent version of Xcode.
 2. Copy `Config/Local.xcconfig.example` to `Config/Local.xcconfig` and set your Apple Developer Team ID and a bundle identifier registered to your team.
 3. Open `ActionBar.xcodeproj` and run the `ActionBar` scheme, or use `make run`.
 
-The app authenticates through the official ActionBar GitHub App. If you're shipping your own fork, register your own [GitHub App](https://docs.github.com/en/apps/creating-github-apps) with device flow enabled and **Actions (read)** permission, then update `clientID` in `Sources/ActionBar/Services/OAuthService.swift` and the app's installation URL. You'll also need your own Sparkle key pair and feed URL in `Resources/Info.plist` (see below).
+The app authenticates through the official ActionBar GitHub App. If you're shipping your own fork, register your own [GitHub App](https://docs.github.com/en/apps/creating-github-apps) with device flow enabled and **Actions (read)** permission, then update `GitHubApp.clientID` and `GitHubApp.installationURL` in `Sources/ActionBar/Services/OAuthService.swift`. You'll also need your own Sparkle key pair and feed URL in `Resources/Info.plist` (see below).
 
 ## Releasing
 

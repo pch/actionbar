@@ -27,6 +27,8 @@
 		A10001000000000000000017 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002000000000000000017 /* SettingsView.swift */; };
 		A10001000000000000000018 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = A1000C000000000000000001 /* Sparkle */; };
 		A10001000000000000000019 /* UpdaterService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002000000000000000019 /* UpdaterService.swift */; };
+		A10001000000000000000021 /* GitHubModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002000000000000000021 /* GitHubModels.swift */; };
+		A10001000000000000000022 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002000000000000000022 /* Components.swift */; };
 /* End PBXBuildFile section */
 
 
@@ -52,6 +54,8 @@
 		A10003000000000000000001 /* ActionBar.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ActionBar.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A10002000000000000000018 /* Base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Base.xcconfig; path = Config/Base.xcconfig; sourceTree = "<group>"; };
 		A10002000000000000000019 /* UpdaterService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdaterService.swift; sourceTree = "<group>"; };
+		A10002000000000000000021 /* GitHubModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubModels.swift; sourceTree = "<group>"; };
+		A10002000000000000000022 /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
 		A10002000000000000000020 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -112,6 +116,7 @@
 			children = (
 				A10002000000000000000003 /* WorkflowRun.swift */,
 				A10002000000000000000004 /* AppState.swift */,
+				A10002000000000000000021 /* GitHubModels.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -137,6 +142,7 @@
 				A10002000000000000000012 /* AboutView.swift */,
 				A10002000000000000000013 /* MenuContentView.swift */,
 				A10002000000000000000017 /* SettingsView.swift */,
+				A10002000000000000000022 /* Components.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -248,6 +254,8 @@
 				A10001000000000000000014 /* RelativeTime.swift in Sources */,
 				A10001000000000000000015 /* MenuBarIcon.swift in Sources */,
 				A10001000000000000000017 /* SettingsView.swift in Sources */,
+				A10001000000000000000021 /* GitHubModels.swift in Sources */,
+				A10001000000000000000022 /* Components.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

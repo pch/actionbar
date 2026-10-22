@@ -1,9 +1,11 @@
 import AppKit
-import Foundation
-import SwiftUI
+import Combine
 
 @MainActor
 final class AppState: ObservableObject {
+    static let defaultPollingInterval: TimeInterval = 30
+    static let defaultMaxRunsPerRepo = 5
+
     @Published var isAuthenticated = KeychainService.loadToken() != nil
     @Published var runs: [WorkflowRun] = []
     @Published var isLoading = false
@@ -19,61 +21,49 @@ final class AppState: ObservableObject {
     @Published var showingSettings = false
     @Published var needsInstallation = false
     @Published var isCheckingInstallation = false
-    @Published var pollingInterval: TimeInterval = 30
+    @Published var pollingInterval = AppState.defaultPollingInterval
     @Published var workflowFilterMode: WorkflowFilterMode = .off
-    @Published var workflowFilterText: String = ""
-    @Published var maxRunsPerRepo: Int = 5
+    @Published var workflowFilterText = ""
+    @Published var maxRunsPerRepo = AppState.defaultMaxRunsPerRepo
     @Published var includeRunsFromOtherUsers = false
     @Published private(set) var overallStatus: RunStatus = .unknown
 
     private let apiClient = GitHubAPIClient()
     private let oauthService = OAuthService()
+    private let defaults = UserDefaults.standard
     private var pollTask: Task<Void, Never>?
     private var installCheckTask: Task<Void, Never>?
     private var oauthTask: Task<Void, Never>?
-    private var previousRunStates: [Int: String] = [:] // run.id -> status/conclusion
+    private var previousRunStatuses: [Int: String] = [:] // run.id -> run.status
     private var hasLoadedOnce = false
     private var isFetchingRuns = false
 
-    private static let selectedReposKey = "selectedRepositories"
-    private static let pollingIntervalKey = "pollingInterval"
-    private static let workflowFilterModeKey = "workflowFilterMode"
-    private static let workflowFilterTextKey = "workflowFilterText"
-    private static let maxRunsPerRepoKey = "maxRunsPerRepo"
-    private static let includeRunsFromOtherUsersKey = "includeRunsFromOtherUsers"
+    private enum DefaultsKey {
+        static let selectedRepos = "selectedRepositories"
+        static let pollingInterval = "pollingInterval"
+        static let workflowFilterMode = "workflowFilterMode"
+        static let workflowFilterText = "workflowFilterText"
+        static let maxRunsPerRepo = "maxRunsPerRepo"
+        static let includeRunsFromOtherUsers = "includeRunsFromOtherUsers"
+    }
 
-    var hasRepoConfiguration: Bool {
-        UserDefaults.standard.object(forKey: Self.selectedReposKey) != nil
+    private var hasRepoConfiguration: Bool {
+        defaults.object(forKey: DefaultsKey.selectedRepos) != nil
     }
 
     func start() {
-        loadSelectedRepos()
-        loadPollingInterval()
-        loadWorkflowFilter()
-        loadMaxRunsPerRepo()
-        loadIncludeRunsFromOtherUsers()
+        loadSettings()
         guard let token = KeychainService.loadToken() else { return }
         isAuthenticated = true
         Task {
             if let user = try? await apiClient.validateToken(token) {
                 username = user.login
             }
-
-            do {
-                let hasInstalls = try await apiClient.hasInstallations(token: token)
-                if hasInstalls {
-                    startPolling()
-                } else {
-                    needsInstallation = true
-                    startInstallCheckTimer()
-                }
-            } catch {
-                // API call failed — don't assume no installations.
-                // Start polling; fetchRuns will surface real errors.
-                startPolling()
-            }
+            await startMonitoring(token: token)
         }
     }
+
+    // MARK: - Authentication
 
     func loginWithGitHub() {
         guard !isLoggingIn else { return }
@@ -96,35 +86,18 @@ final class AppState: ObservableObject {
                 )
 
                 let user = try await apiClient.validateToken(token)
-                guard KeychainService.saveToken(token) else {
-                    throw GitHubAPIError.networkError(
-                        NSError(domain: "KeychainError", code: -1,
-                                userInfo: [NSLocalizedDescriptionKey: "Failed to save token to Keychain"])
-                    )
-                }
+                try KeychainService.saveToken(token)
 
                 username = user.login
                 isAuthenticated = true
                 deviceCode = nil
                 isLoggingIn = false
 
-                do {
-                    let hasInstalls = try await apiClient.hasInstallations(token: token)
-                    if hasInstalls {
-                        startPolling()
-                    } else {
-                        needsInstallation = true
-                        startInstallCheckTimer()
-                    }
-                } catch {
-                    // Installation check failed after login — start polling anyway
-                    startPolling()
-                }
-            } catch is CancellationError {
-                deviceCode = nil
-                isLoggingIn = false
+                await startMonitoring(token: token)
             } catch {
-                errorMessage = error.localizedDescription
+                if !(error is CancellationError) {
+                    errorMessage = error.localizedDescription
+                }
                 deviceCode = nil
                 isLoggingIn = false
             }
@@ -137,56 +110,6 @@ final class AppState: ObservableObject {
         deviceCode = nil
         isLoggingIn = false
         errorMessage = nil
-    }
-
-    func openInstallationPage() {
-        if let url = URL(string: "https://github.com/apps/actionbar-macos") {
-            NSWorkspace.shared.open(url)
-        }
-    }
-
-    func checkInstallationAndStart() {
-        guard let token = KeychainService.loadToken() else { return }
-        isCheckingInstallation = true
-        Task {
-            do {
-                let hasInstalls = try await apiClient.hasInstallations(token: token)
-                if hasInstalls {
-                    stopInstallCheckTimer()
-                    needsInstallation = false
-                    errorMessage = nil
-                    startPolling()
-                } else {
-                    errorMessage = "No installation found yet. Please install the app on GitHub first. If you did, wait a bit."
-                }
-            } catch {
-                errorMessage = error.localizedDescription
-            }
-            isCheckingInstallation = false
-        }
-    }
-
-    func startInstallCheckTimer() {
-        stopInstallCheckTimer()
-        installCheckTask = Task {
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(10))
-                guard !Task.isCancelled else { break }
-                guard let token = KeychainService.loadToken() else { continue }
-                let hasInstalls = (try? await apiClient.hasInstallations(token: token)) ?? false
-                if hasInstalls {
-                    needsInstallation = false
-                    errorMessage = nil
-                    startPolling()
-                    break
-                }
-            }
-        }
-    }
-
-    private func stopInstallCheckTimer() {
-        installCheckTask?.cancel()
-        installCheckTask = nil
     }
 
     func signOut() {
@@ -202,7 +125,7 @@ final class AppState: ObservableObject {
         overallStatus = .unknown
         runs = []
         username = nil
-        previousRunStates = [:]
+        previousRunStatuses = [:]
         hasLoadedOnce = false
         errorMessage = nil
         selectedRepoNames = []
@@ -211,39 +134,110 @@ final class AppState: ObservableObject {
         showingSettings = false
         workflowFilterMode = .off
         workflowFilterText = ""
-        maxRunsPerRepo = 5
+        maxRunsPerRepo = Self.defaultMaxRunsPerRepo
         includeRunsFromOtherUsers = false
-        UserDefaults.standard.removeObject(forKey: Self.selectedReposKey)
-        UserDefaults.standard.removeObject(forKey: Self.workflowFilterModeKey)
-        UserDefaults.standard.removeObject(forKey: Self.workflowFilterTextKey)
-        UserDefaults.standard.removeObject(forKey: Self.maxRunsPerRepoKey)
-        UserDefaults.standard.removeObject(forKey: Self.includeRunsFromOtherUsersKey)
+        // The polling interval is a device preference, so it survives signing out.
+        for key in [
+            DefaultsKey.selectedRepos,
+            DefaultsKey.workflowFilterMode,
+            DefaultsKey.workflowFilterText,
+            DefaultsKey.maxRunsPerRepo,
+            DefaultsKey.includeRunsFromOtherUsers,
+        ] {
+            defaults.removeObject(forKey: key)
+        }
     }
+
+    // MARK: - GitHub App Installation
+
+    /// Starts polling if the GitHub App is installed, otherwise waits for it to be installed.
+    private func startMonitoring(token: String) async {
+        do {
+            if try await apiClient.hasInstallations(token: token) {
+                startPolling()
+            } else {
+                needsInstallation = true
+                startInstallCheckTimer()
+            }
+        } catch {
+            // Don't assume there are no installations; fetchRuns will surface real errors.
+            startPolling()
+        }
+    }
+
+    func checkInstallationAndStart() {
+        guard let token = KeychainService.loadToken() else { return }
+        isCheckingInstallation = true
+        Task {
+            do {
+                if try await apiClient.hasInstallations(token: token) {
+                    installationFound()
+                } else {
+                    errorMessage = "No installation found yet. Please install the app on GitHub first. If you did, wait a bit."
+                }
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+            isCheckingInstallation = false
+        }
+    }
+
+    private func startInstallCheckTimer() {
+        stopInstallCheckTimer()
+        installCheckTask = Task {
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(10))
+                guard !Task.isCancelled else { break }
+                guard let token = KeychainService.loadToken() else { continue }
+                if (try? await apiClient.hasInstallations(token: token)) == true {
+                    installationFound()
+                    break
+                }
+            }
+        }
+    }
+
+    private func stopInstallCheckTimer() {
+        installCheckTask?.cancel()
+        installCheckTask = nil
+    }
+
+    private func installationFound() {
+        stopInstallCheckTimer()
+        needsInstallation = false
+        errorMessage = nil
+        startPolling()
+    }
+
+    // MARK: - Polling
 
     func refreshNow() {
         isLoading = true
         Task {
-            let start = Date()
+            let start = ContinuousClock.now
             await fetchRuns(manageLoading: false)
-            let elapsed = Date().timeIntervalSince(start)
-            let remaining = 0.5 - elapsed
-            if remaining > 0 {
-                try? await Task.sleep(nanoseconds: UInt64(remaining * 1_000_000_000))
-            }
+            // Keep the spinner up long enough to register as feedback.
+            try? await Task.sleep(until: start + .milliseconds(500), clock: .continuous)
             isLoading = false
         }
     }
 
-    // MARK: - Polling
+    func updatePollingInterval(_ interval: TimeInterval) {
+        pollingInterval = interval
+        defaults.set(pollingInterval, forKey: DefaultsKey.pollingInterval)
+        startPolling()
+    }
 
     private func startPolling() {
         stopPolling()
         pollTask = Task {
             await fetchRuns()
             while !Task.isCancelled {
+                // Wait in short steps against a wall-clock deadline, so a refresh happens
+                // promptly after the Mac wakes from sleep.
                 let deadline = Date().addingTimeInterval(pollingInterval)
                 while Date() < deadline, !Task.isCancelled {
-                    try? await Task.sleep(nanoseconds: 1_000_000_000)
+                    try? await Task.sleep(for: .seconds(1))
                 }
                 guard !Task.isCancelled else { break }
                 await fetchRuns()
@@ -277,183 +271,89 @@ final class AppState: ObservableObject {
             let actor = includeRunsFromOtherUsers ? nil : username
             let newRuns = try await apiClient.fetchRecentRuns(token: token, actor: actor, repos: repos)
 
+            // With nothing selected yet, adopt the repos that have recent runs as the selection.
             if usingFallback && !newRuns.isEmpty {
-                let repoNames = Set(newRuns.map(\.repositoryFullName))
-                selectedRepoNames = repoNames
+                selectedRepoNames = Set(newRuns.map(\.repositoryFullName))
                 saveSelectedRepos()
             }
 
-            let workflowFilteredRuns = applyWorkflowFilter(to: newRuns)
-            let filteredRuns = applyMaxRunsPerRepo(to: workflowFilteredRuns)
+            let workflowFilteredRuns = newRuns.filtered(by: workflowFilterMode, patterns: workflowFilterText)
+            let visibleRuns = workflowFilteredRuns.limited(toRunsPerRepo: maxRunsPerRepo)
 
-            // Detect completions for notifications
             if hasLoadedOnce {
-                detectCompletions(newRuns: filteredRuns)
+                notifyCompletedRuns(in: visibleRuns)
+            }
+            previousRunStatuses = [:]
+            for run in visibleRuns {
+                previousRunStatuses[run.id] = run.status
             }
 
-            // Update state tracking
-            previousRunStates = [:]
-            for run in filteredRuns {
-                previousRunStates[run.id] = stateKey(for: run)
-            }
-
-            overallStatus = menuBarStatus(for: workflowFilteredRuns)
-            runs = filteredRuns
+            overallStatus = workflowFilteredRuns.overallStatus
+            runs = visibleRuns
             hasLoadedOnce = true
-            if manageLoading { isLoading = false }
-        } catch let error as GitHubAPIError {
-            if case .invalidToken = error {
-                signOut()
-            } else {
-                errorMessage = error.localizedDescription
-                if manageLoading { isLoading = false }
-            }
+        } catch GitHubAPIError.invalidToken {
+            signOut()
         } catch is CancellationError {
             // Task was cancelled (e.g. polling restart) — don't surface to UI.
-            if manageLoading { isLoading = false }
         } catch {
             errorMessage = error.localizedDescription
-            if manageLoading { isLoading = false }
         }
+
+        if manageLoading { isLoading = false }
     }
 
-    // MARK: - Completion Detection
-
-    private func detectCompletions(newRuns: [WorkflowRun]) {
-        for run in newRuns {
-            let newState = stateKey(for: run)
-            if let oldState = previousRunStates[run.id], oldState != newState {
-                let status = RunStatus(from: run)
-                if run.status == "completed" && (oldState.hasPrefix("in_progress") || oldState.hasPrefix("queued")) {
-                    NotificationService.sendCompletionNotification(run: run)
-                    _ = status // suppress unused warning
-                }
+    /// Notifies about runs that were queued or in progress on the previous fetch and have now completed.
+    private func notifyCompletedRuns(in newRuns: [WorkflowRun]) {
+        for run in newRuns where run.status == "completed" {
+            if let previousStatus = previousRunStatuses[run.id], ["in_progress", "queued"].contains(previousStatus) {
+                NotificationService.sendCompletionNotification(run: run)
             }
         }
     }
 
-    private func stateKey(for run: WorkflowRun) -> String {
-        "\(run.status ?? "unknown")/\(run.conclusion ?? "none")"
-    }
+    // MARK: - Settings
 
-    // MARK: - Settings Persistence
-
-    private func loadSelectedRepos() {
-        if let saved = UserDefaults.standard.stringArray(forKey: Self.selectedReposKey) {
+    private func loadSettings() {
+        if let saved = defaults.stringArray(forKey: DefaultsKey.selectedRepos) {
             selectedRepoNames = Set(saved)
         }
+
+        let savedInterval = defaults.double(forKey: DefaultsKey.pollingInterval)
+        pollingInterval = savedInterval > 0 ? savedInterval : Self.defaultPollingInterval
+
+        if let modeRaw = defaults.string(forKey: DefaultsKey.workflowFilterMode),
+           let mode = WorkflowFilterMode(rawValue: modeRaw) {
+            workflowFilterMode = mode
+        }
+        workflowFilterText = defaults.string(forKey: DefaultsKey.workflowFilterText) ?? ""
+
+        let savedMaxRuns = defaults.integer(forKey: DefaultsKey.maxRunsPerRepo)
+        maxRunsPerRepo = savedMaxRuns > 0 ? savedMaxRuns : Self.defaultMaxRunsPerRepo
+
+        includeRunsFromOtherUsers = defaults.bool(forKey: DefaultsKey.includeRunsFromOtherUsers)
     }
 
-    func saveSelectedRepos() {
-        UserDefaults.standard.set(Array(selectedRepoNames), forKey: Self.selectedReposKey)
+    /// Persists the settings edited in the settings panel. The polling interval is saved as soon as it changes.
+    func saveSettings() {
+        saveSelectedRepos()
+        defaults.set(workflowFilterMode.rawValue, forKey: DefaultsKey.workflowFilterMode)
+        defaults.set(workflowFilterText, forKey: DefaultsKey.workflowFilterText)
+        defaults.set(maxRunsPerRepo, forKey: DefaultsKey.maxRunsPerRepo)
+        defaults.set(includeRunsFromOtherUsers, forKey: DefaultsKey.includeRunsFromOtherUsers)
     }
+
+    private func saveSelectedRepos() {
+        defaults.set(Array(selectedRepoNames), forKey: DefaultsKey.selectedRepos)
+    }
+
+    // MARK: - Repository Selection
 
     func snapshotSelectedRepos() {
-        if let saved = UserDefaults.standard.stringArray(forKey: Self.selectedReposKey) {
-            repoSelectionSnapshot = Set(saved)
-        } else {
-            repoSelectionSnapshot = []
-        }
+        repoSelectionSnapshot = Set(defaults.stringArray(forKey: DefaultsKey.selectedRepos) ?? [])
     }
 
     func resetReposToSnapshot() {
         selectedRepoNames = repoSelectionSnapshot
-    }
-
-    private func loadWorkflowFilter() {
-        if let modeRaw = UserDefaults.standard.string(forKey: Self.workflowFilterModeKey),
-           let mode = WorkflowFilterMode(rawValue: modeRaw) {
-            workflowFilterMode = mode
-        }
-        workflowFilterText = UserDefaults.standard.string(forKey: Self.workflowFilterTextKey) ?? ""
-    }
-
-    func saveWorkflowFilter() {
-        UserDefaults.standard.set(workflowFilterMode.rawValue, forKey: Self.workflowFilterModeKey)
-        UserDefaults.standard.set(workflowFilterText, forKey: Self.workflowFilterTextKey)
-    }
-
-    private func applyWorkflowFilter(to runs: [WorkflowRun]) -> [WorkflowRun] {
-        guard workflowFilterMode != .off else { return runs }
-
-        let patterns = workflowFilterText
-            .split(separator: ",")
-            .map { $0.trimmingCharacters(in: .whitespaces).lowercased() }
-            .filter { !$0.isEmpty }
-
-        guard !patterns.isEmpty else { return runs }
-
-        return runs.filter { run in
-            let name = (run.name ?? "").lowercased()
-            let matches = patterns.contains { name.contains($0) }
-            return workflowFilterMode == .include ? matches : !matches
-        }
-    }
-
-    private func menuBarStatus(for runs: [WorkflowRun]) -> RunStatus {
-        let hasActiveRun = runs.contains { run in
-            switch RunStatus(from: run) {
-            case .running, .queued:
-                return true
-            default:
-                return false
-            }
-        }
-
-        if hasActiveRun {
-            return .running
-        }
-
-        guard let lastFinishedRun = runs
-            .filter({ $0.status == "completed" })
-            .max(by: { $0.updatedAt < $1.updatedAt }) else {
-            return .unknown
-        }
-
-        return RunStatus(from: lastFinishedRun)
-    }
-
-    private func loadMaxRunsPerRepo() {
-        let saved = UserDefaults.standard.integer(forKey: Self.maxRunsPerRepoKey)
-        maxRunsPerRepo = saved > 0 ? saved : 5
-    }
-
-    func saveMaxRunsPerRepo() {
-        UserDefaults.standard.set(maxRunsPerRepo, forKey: Self.maxRunsPerRepoKey)
-    }
-
-    private func loadIncludeRunsFromOtherUsers() {
-        includeRunsFromOtherUsers = UserDefaults.standard.bool(forKey: Self.includeRunsFromOtherUsersKey)
-    }
-
-    func saveIncludeRunsFromOtherUsers() {
-        UserDefaults.standard.set(includeRunsFromOtherUsers, forKey: Self.includeRunsFromOtherUsersKey)
-    }
-
-    private func applyMaxRunsPerRepo(to runs: [WorkflowRun]) -> [WorkflowRun] {
-        var countsByRepo: [String: Int] = [:]
-        return runs.filter { run in
-            let count = countsByRepo[run.repositoryFullName, default: 0]
-            guard count < maxRunsPerRepo else { return false }
-            countsByRepo[run.repositoryFullName] = count + 1
-            return true
-        }
-    }
-
-    private func loadPollingInterval() {
-        let saved = UserDefaults.standard.double(forKey: Self.pollingIntervalKey)
-        pollingInterval = saved > 0 ? saved : 30
-    }
-
-    private func savePollingInterval() {
-        UserDefaults.standard.set(pollingInterval, forKey: Self.pollingIntervalKey)
-    }
-
-    func updatePollingInterval(_ interval: TimeInterval) {
-        pollingInterval = interval
-        savePollingInterval()
-        stopPolling()
-        startPolling()
     }
 
     func toggleRepo(_ repoName: String) {
@@ -477,12 +377,10 @@ final class AppState: ObservableObject {
         if !force && !availableRepos.isEmpty { return }
         isLoadingRepos = true
         Task {
-            do {
-                let repos = try await apiClient.fetchAllRepos(token: token)
+            // On failure, keep whatever list we had before.
+            if let repos = try? await apiClient.fetchAllRepos(token: token) {
                 availableRepos = repos
-                repoListIsCapped = repos.count >= 200
-            } catch {
-                // Keep whatever we had before
+                repoListIsCapped = repos.count >= GitHubAPIClient.maxRepositories
             }
             isLoadingRepos = false
         }

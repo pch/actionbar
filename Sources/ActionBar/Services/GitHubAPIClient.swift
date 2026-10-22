@@ -24,7 +24,17 @@ enum GitHubAPIError: Error, LocalizedError {
 }
 
 actor GitHubAPIClient {
-    private let baseURL = "https://api.github.com"
+    /// Upper bound on repositories listed for selection (and polled when nothing is selected).
+    static let maxRepositories = 200
+
+    private static let baseURL = "https://api.github.com"
+    private static let pageSize = 100
+    private static let runsPerRepo = 20
+    private static let maxRecentRuns = 50
+    private static let maxConcurrentRequests = 4
+    /// Automated runs (cron jobs, external dispatches) that aren't worth surfacing.
+    private static let excludedEvents: Set<String> = ["schedule", "repository_dispatch"]
+
     private let session: URLSession
     private let decoder: JSONDecoder
     private var workflowRunsCache: [String: CachedWorkflowRunsResponse] = [:]
@@ -45,6 +55,7 @@ actor GitHubAPIClient {
         self.session = URLSession(configuration: config)
 
         self.decoder = JSONDecoder()
+        self.decoder.keyDecodingStrategy = .convertFromSnakeCase
         self.decoder.dateDecodingStrategy = .iso8601
     }
 
@@ -55,205 +66,76 @@ actor GitHubAPIClient {
     // MARK: - Token Validation
 
     func validateToken(_ token: String) async throws -> GitHubUser {
-        let request = makeRequest(path: "/user", token: token)
-        let (data, response) = try await perform(request)
-
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw GitHubAPIError.invalidResponse(0)
-        }
-
-        if httpResponse.statusCode == 401 {
-            throw GitHubAPIError.invalidToken
-        }
-
-        if isRateLimited(httpResponse) {
-            throw GitHubAPIError.rateLimited
-        }
-
-        guard httpResponse.statusCode == 200 else {
-            throw GitHubAPIError.invalidResponse(httpResponse.statusCode)
-        }
-
-        do {
-            return try decoder.decode(GitHubUser.self, from: data)
-        } catch {
-            throw GitHubAPIError.decodingError(error)
-        }
+        try await get(GitHubUser.self, path: "/user", token: token)
     }
 
-    // MARK: - Fetch Workflow Runs
+    // MARK: - Workflow Runs
 
     func fetchRecentRuns(token: String, actor: String? = nil, repos repoNames: [String]? = nil) async throws -> [WorkflowRun] {
         let repoFullNames: [String]
         if let repoNames {
             repoFullNames = repoNames
         } else {
-            repoFullNames = try await fetchRepos(token: token).map(\.fullName)
+            repoFullNames = try await fetchAllRepos(token: token).map(\.fullName)
         }
 
-        let (allRuns, errors) = await withTaskGroup(of: (runs: [WorkflowRun], error: Error?).self) { group in
-            let maxConcurrentRequests = 4
-            var iterator = repoFullNames.makeIterator()
+        let (allRuns, errors) = await withTaskGroup(of: Result<[WorkflowRun], Error>.self) { group in
+            var pendingRepos = repoFullNames.makeIterator()
 
-            for _ in 0..<maxConcurrentRequests {
-                guard let repoName = iterator.next() else { break }
-                group.addTask {
-                    do {
-                        let runs = try await self.fetchRunsForRepo(repo: repoName, token: token, actor: actor)
-                        return (runs: runs, error: nil)
-                    } catch {
-                        return (runs: [], error: error)
-                    }
-                }
+            func enqueueNextRepo() {
+                guard let repo = pendingRepos.next() else { return }
+                group.addTask { await self.fetchRunsResult(repo: repo, token: token, actor: actor) }
+            }
+
+            for _ in 0..<Self.maxConcurrentRequests {
+                enqueueNextRepo()
             }
 
             var allRuns: [WorkflowRun] = []
             var errors: [Error] = []
             while let result = await group.next() {
-                allRuns.append(contentsOf: result.runs)
-                if let error = result.error {
-                    // Allow partial results unless the failure is critical.
-                    errors.append(error)
+                switch result {
+                case .success(let runs): allRuns.append(contentsOf: runs)
+                case .failure(let error): errors.append(error)
                 }
-                if let repoName = iterator.next() {
-                    group.addTask {
-                        do {
-                            let runs = try await self.fetchRunsForRepo(repo: repoName, token: token, actor: actor)
-                            return (runs: runs, error: nil)
-                        } catch {
-                            return (runs: [], error: error)
-                        }
-                    }
-                }
+                enqueueNextRepo()
             }
 
             return (allRuns, errors)
         }
 
-        if errors.contains(where: { error in
-            guard let apiError = error as? GitHubAPIError else { return false }
-            if case .invalidToken = apiError { return true }
-            return false
-        }) {
+        // Partial results are fine unless the failure affects every request.
+        if errors.contains(where: { if case GitHubAPIError.invalidToken = $0 { true } else { false } }) {
             throw GitHubAPIError.invalidToken
         }
-        if errors.contains(where: { error in
-            guard let apiError = error as? GitHubAPIError else { return false }
-            if case .rateLimited = apiError { return true }
-            return false
-        }) {
+        if errors.contains(where: { if case GitHubAPIError.rateLimited = $0 { true } else { false } }) {
             throw GitHubAPIError.rateLimited
         }
-        if !errors.isEmpty && allRuns.isEmpty {
-            throw errors[0]
+        if let firstError = errors.first, allRuns.isEmpty {
+            throw firstError
         }
 
-        // Filter out automated/scheduled runs (cron jobs, dependabot, etc.)
-        let excludedEvents: Set<String> = ["schedule", "repository_dispatch"]
-        let filteredRuns = allRuns.filter { run in
-            guard let event = run.event else { return true }
-            return !excludedEvents.contains(event)
+        let recentRuns = allRuns
+            .filter { run in run.event.map { !Self.excludedEvents.contains($0) } ?? true }
+            .sorted { $0.createdAt > $1.createdAt }
+        return Array(recentRuns.prefix(Self.maxRecentRuns))
+    }
+
+    private func fetchRunsResult(repo: String, token: String, actor: String?) async -> Result<[WorkflowRun], Error> {
+        do {
+            return .success(try await fetchRunsForRepo(repo: repo, token: token, actor: actor))
+        } catch {
+            return .failure(error)
         }
-
-        let sortedRuns = filteredRuns.sorted { $0.createdAt > $1.createdAt }
-        return Array(sortedRuns.prefix(50))
     }
 
-    // MARK: - Installations
-
-    func fetchInstallations(token: String) async throws -> [AppInstallation] {
-        var allInstallations: [AppInstallation] = []
-        var page = 1
-
-        while true {
-            let request = makeRequest(
-                path: "/user/installations",
-                queryItems: [
-                    URLQueryItem(name: "per_page", value: "100"),
-                    URLQueryItem(name: "page", value: "\(page)"),
-                ],
-                token: token
-            )
-
-            let (data, response) = try await perform(request)
-            try validateResponse(response)
-
-            let result: InstallationsResponse
-            do {
-                result = try decoder.decode(InstallationsResponse.self, from: data)
-            } catch {
-                throw GitHubAPIError.decodingError(error)
-            }
-
-            allInstallations.append(contentsOf: result.installations)
-            if allInstallations.count >= result.totalCount || result.installations.count < 100 { break }
-            page += 1
-        }
-
-        return allInstallations
-    }
-
-    func hasInstallations(token: String) async throws -> Bool {
-        let installations = try await fetchInstallations(token: token)
-        return !installations.isEmpty
-    }
-
-    func fetchAllRepos(token: String) async throws -> [Repository] {
-        let installations = try await fetchInstallations(token: token)
-        var allRepos: [Repository] = []
-        let maxRepos = 200
-
-        for installation in installations {
-            var page = 1
-            while allRepos.count < maxRepos {
-                let request = makeRequest(
-                    path: "/user/installations/\(installation.id)/repositories",
-                    queryItems: [
-                        URLQueryItem(name: "per_page", value: "100"),
-                        URLQueryItem(name: "page", value: "\(page)"),
-                    ],
-                    token: token
-                )
-
-                let (data, response) = try await perform(request)
-                try validateResponse(response)
-
-                let result: InstallationRepositoriesResponse
-                do {
-                    result = try decoder.decode(InstallationRepositoriesResponse.self, from: data)
-                } catch {
-                    throw GitHubAPIError.decodingError(error)
-                }
-
-                allRepos.append(contentsOf: result.repositories)
-                if allRepos.count >= result.totalCount || result.repositories.count < 100 { break }
-                page += 1
-            }
-
-            if allRepos.count >= maxRepos { break }
-        }
-
-        let sorted = allRepos.sorted { $0.fullName.localizedCaseInsensitiveCompare($1.fullName) == .orderedAscending }
-        return Array(sorted.prefix(maxRepos))
-    }
-
-    // MARK: - Private
-
-    private func fetchRepos(token: String) async throws -> [Repository] {
-        return try await fetchAllRepos(token: token)
-    }
-
-    private func fetchRunsForRepo(repo: String, token: String, actor: String? = nil) async throws -> [WorkflowRun] {
-        var queryItems = [URLQueryItem(name: "per_page", value: "20")]
+    private func fetchRunsForRepo(repo: String, token: String, actor: String?) async throws -> [WorkflowRun] {
+        var queryItems = [URLQueryItem(name: "per_page", value: "\(Self.runsPerRepo)")]
         if let actor {
             queryItems.append(URLQueryItem(name: "actor", value: actor))
         }
 
-        var request = makeRequest(
-            path: "/repos/\(repo)/actions/runs",
-            queryItems: queryItems,
-            token: token
-        )
+        var request = makeRequest(path: "/repos/\(repo)/actions/runs", queryItems: queryItems, token: token)
         let cacheKey = request.url?.absoluteString
 
         if let cacheKey, let cached = workflowRunsCache[cacheKey] {
@@ -261,18 +143,7 @@ actor GitHubAPIClient {
         }
 
         let (data, response) = try await perform(request)
-
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw GitHubAPIError.invalidResponse(0)
-        }
-
-        if httpResponse.statusCode == 401 {
-            throw GitHubAPIError.invalidToken
-        }
-
-        if isRateLimited(httpResponse) {
-            throw GitHubAPIError.rateLimited
-        }
+        let httpResponse = try checkedResponse(response)
 
         if httpResponse.statusCode == 304, let cacheKey, let cached = workflowRunsCache[cacheKey] {
             return cached.runs
@@ -287,24 +158,100 @@ actor GitHubAPIClient {
             throw GitHubAPIError.invalidResponse(httpResponse.statusCode)
         }
 
-        do {
-            let runsResponse = try decoder.decode(WorkflowRunsResponse.self, from: data)
-            if let cacheKey, let etag = httpResponse.value(forHTTPHeaderField: "ETag") {
-                workflowRunsCache[cacheKey] = CachedWorkflowRunsResponse(
-                    etag: etag,
-                    runs: runsResponse.workflowRuns
-                )
-            } else if let cacheKey {
+        guard let runsResponse = try? decoder.decode(WorkflowRunsResponse.self, from: data) else {
+            return []
+        }
+
+        if let cacheKey {
+            if let etag = httpResponse.value(forHTTPHeaderField: "ETag") {
+                workflowRunsCache[cacheKey] = CachedWorkflowRunsResponse(etag: etag, runs: runsResponse.workflowRuns)
+            } else {
                 workflowRunsCache.removeValue(forKey: cacheKey)
             }
-            return runsResponse.workflowRuns
+        }
+        return runsResponse.workflowRuns
+    }
+
+    // MARK: - Installations and Repositories
+
+    func hasInstallations(token: String) async throws -> Bool {
+        try await !fetchInstallations(token: token).isEmpty
+    }
+
+    func fetchAllRepos(token: String) async throws -> [Repository] {
+        let installations = try await fetchInstallations(token: token)
+        var allRepos: [Repository] = []
+
+        for installation in installations where allRepos.count < Self.maxRepositories {
+            allRepos += try await fetchAllPages(
+                InstallationRepositoriesResponse.self,
+                path: "/user/installations/\(installation.id)/repositories",
+                token: token,
+                limit: Self.maxRepositories - allRepos.count
+            )
+        }
+
+        let sorted = allRepos.sorted { $0.fullName.localizedCaseInsensitiveCompare($1.fullName) == .orderedAscending }
+        return Array(sorted.prefix(Self.maxRepositories))
+    }
+
+    private func fetchInstallations(token: String) async throws -> [AppInstallation] {
+        try await fetchAllPages(InstallationsResponse.self, path: "/user/installations", token: token)
+    }
+
+    // MARK: - Requests
+
+    /// Follows `page` numbers until every item (or at least `limit` items) has been fetched.
+    private func fetchAllPages<Response: PaginatedResponse>(
+        _ type: Response.Type,
+        path: String,
+        token: String,
+        limit: Int = .max
+    ) async throws -> [Response.Item] {
+        var items: [Response.Item] = []
+        var page = 1
+
+        while items.count < limit {
+            let response = try await get(
+                type,
+                path: path,
+                queryItems: [
+                    URLQueryItem(name: "per_page", value: "\(Self.pageSize)"),
+                    URLQueryItem(name: "page", value: "\(page)"),
+                ],
+                token: token
+            )
+            items += response.items
+            if items.count >= response.totalCount || response.items.count < Self.pageSize { break }
+            page += 1
+        }
+
+        return items
+    }
+
+    private func get<T: Decodable>(
+        _ type: T.Type,
+        path: String,
+        queryItems: [URLQueryItem] = [],
+        token: String
+    ) async throws -> T {
+        let request = makeRequest(path: path, queryItems: queryItems, token: token)
+        let (data, response) = try await perform(request)
+        let httpResponse = try checkedResponse(response)
+
+        guard httpResponse.statusCode == 200 else {
+            throw GitHubAPIError.invalidResponse(httpResponse.statusCode)
+        }
+
+        do {
+            return try decoder.decode(type, from: data)
         } catch {
-            return []
+            throw GitHubAPIError.decodingError(error)
         }
     }
 
     private func makeRequest(path: String, queryItems: [URLQueryItem] = [], token: String) -> URLRequest {
-        var components = URLComponents(string: baseURL + path)!
+        var components = URLComponents(string: Self.baseURL + path)!
         if !queryItems.isEmpty {
             components.queryItems = queryItems
         }
@@ -314,7 +261,16 @@ actor GitHubAPIClient {
         return request
     }
 
-    private func validateResponse(_ response: URLResponse) throws {
+    private func perform(_ request: URLRequest) async throws -> (Data, URLResponse) {
+        do {
+            return try await session.data(for: request)
+        } catch {
+            throw GitHubAPIError.networkError(error)
+        }
+    }
+
+    /// Throws for responses that are never usable: non-HTTP, unauthorized, or rate limited.
+    private func checkedResponse(_ response: URLResponse) throws -> HTTPURLResponse {
         guard let httpResponse = response as? HTTPURLResponse else {
             throw GitHubAPIError.invalidResponse(0)
         }
@@ -324,26 +280,11 @@ actor GitHubAPIClient {
         if isRateLimited(httpResponse) {
             throw GitHubAPIError.rateLimited
         }
-        guard httpResponse.statusCode == 200 else {
-            throw GitHubAPIError.invalidResponse(httpResponse.statusCode)
-        }
+        return httpResponse
     }
 
     private func isRateLimited(_ response: HTTPURLResponse) -> Bool {
-        if response.statusCode == 429 { return true }
-        if response.statusCode == 403,
-           let remaining = response.value(forHTTPHeaderField: "x-ratelimit-remaining"),
-           remaining == "0" {
-            return true
-        }
-        return false
-    }
-
-    private func perform(_ request: URLRequest) async throws -> (Data, URLResponse) {
-        do {
-            return try await session.data(for: request)
-        } catch {
-            throw GitHubAPIError.networkError(error)
-        }
+        response.statusCode == 429
+            || (response.statusCode == 403 && response.value(forHTTPHeaderField: "x-ratelimit-remaining") == "0")
     }
 }

@@ -1,49 +1,54 @@
 import Foundation
 import Security
 
+enum KeychainError: Error, LocalizedError {
+    case saveFailed(OSStatus)
+
+    var errorDescription: String? {
+        "Failed to save token to Keychain"
+    }
+}
+
 enum KeychainService {
+    // Predates the ActionBar name. Changing it would sign out existing users.
     private static let service = "com.menuapp.github-actions"
     private static let account = "github-token"
 
-    static func saveToken(_ token: String) -> Bool {
-        deleteToken()
-
-        guard let data = token.data(using: .utf8) else { return false }
-
-        let query: [String: Any] = [
+    private static var baseQuery: [String: Any] {
+        [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: account,
-            kSecValueData as String: data,
-            kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
         ]
+    }
 
-        let status = SecItemAdd(query as CFDictionary, nil)
+    static func saveToken(_ token: String) throws {
+        deleteToken()
+
+        let data = Data(token.utf8)
+        var query = baseQuery
+        query[kSecValueData as String] = data
+        query[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+
+        var status = SecItemAdd(query as CFDictionary, nil)
 
         if status == errSecDuplicateItem {
-            let searchQuery: [String: Any] = [
-                kSecClass as String: kSecClassGenericPassword,
-                kSecAttrService as String: service,
-                kSecAttrAccount as String: account,
-            ]
             let updateAttrs: [String: Any] = [
                 kSecValueData as String: data,
                 kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
             ]
-            return SecItemUpdate(searchQuery as CFDictionary, updateAttrs as CFDictionary) == errSecSuccess
+            status = SecItemUpdate(baseQuery as CFDictionary, updateAttrs as CFDictionary)
         }
 
-        return status == errSecSuccess
+        guard status == errSecSuccess else {
+            throw KeychainError.saveFailed(status)
+        }
     }
 
     static func loadToken() -> String? {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: account,
-            kSecReturnData as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne,
-        ]
+        var query = baseQuery
+        query[kSecReturnData as String] = true
+        query[kSecMatchLimit as String] = kSecMatchLimitOne
 
         var result: AnyObject?
         let status = SecItemCopyMatching(query as CFDictionary, &result)
@@ -62,15 +67,7 @@ enum KeychainService {
         return nil
     }
 
-    @discardableResult
-    static func deleteToken() -> Bool {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: account,
-        ]
-
-        let status = SecItemDelete(query as CFDictionary)
-        return status == errSecSuccess || status == errSecItemNotFound
+    static func deleteToken() {
+        SecItemDelete(baseQuery as CFDictionary)
     }
 }

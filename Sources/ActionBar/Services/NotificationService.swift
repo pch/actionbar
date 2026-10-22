@@ -7,9 +7,8 @@ enum NotificationService {
     }
 
     static func sendCompletionNotification(run: WorkflowRun) {
-        let status = RunStatus(from: run)
         let content = UNMutableNotificationContent()
-        content.title = "\(status.label): \(run.displayTitle ?? run.name ?? "Workflow")"
+        content.title = "\(RunStatus(from: run).label): \(run.title)"
         content.body = "\(run.repositoryFullName) · \(run.headBranch ?? "")"
         content.sound = .default
         content.userInfo = ["url": run.htmlUrl]
