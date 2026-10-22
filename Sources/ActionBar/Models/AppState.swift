@@ -39,6 +39,7 @@ final class AppState {
     @ObservationIgnored private var refetchRequested = false
     /// Changes on sign-out, so a fetch that was in flight doesn't apply its results afterwards.
     @ObservationIgnored private var sessionID = 0
+    @ObservationIgnored private var repoListTask: Task<Void, Never>?
 
     init(settings: SettingsStore? = nil) {
         self.settings = settings ?? SettingsStore()
@@ -114,6 +115,9 @@ final class AppState {
         cancelLogin()
         stopPolling()
         stopInstallCheckTimer()
+        repoListTask?.cancel()
+        repoListTask = nil
+        isLoadingRepos = false
         Task {
             await apiClient.clearConditionalCache()
         }
@@ -353,18 +357,20 @@ final class AppState {
         isLoadingRepos = true
         repoListError = nil
         let sessionID = self.sessionID
-        Task {
-            defer { isLoadingRepos = false }
+        // Only the latest load applies its result, so an older one finishing later can't overwrite it.
+        repoListTask?.cancel()
+        repoListTask = Task {
             do {
                 let repos = try await apiClient.fetchAllRepos(token: token)
-                guard sessionID == self.sessionID else { return }
+                guard !Task.isCancelled, sessionID == self.sessionID else { return }
                 availableRepos = repos
                 repoListIsCapped = repos.count >= GitHubAPIClient.maxRepositories
             } catch {
+                guard !Task.isCancelled, sessionID == self.sessionID else { return }
                 // Keep whatever list we had before.
-                guard sessionID == self.sessionID else { return }
                 repoListError = error.localizedDescription
             }
+            isLoadingRepos = false
         }
     }
 }
