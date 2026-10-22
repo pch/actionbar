@@ -18,8 +18,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
 
     // Windows become key on the main thread, so this is called there.
     @objc private func windowDidBecomeKey(_ notification: Notification) {
-        guard let panel = notification.object as? NSPanel, !(panel is NSOpenPanel) else { return }
-        panel.collectionBehavior.insert([.canJoinAllSpaces, .stationary, .fullScreenAuxiliary])
+        let behavior: NSWindow.CollectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary]
+        guard let panel = notification.object as? NSPanel, !(panel is NSOpenPanel),
+              !panel.collectionBehavior.contains(behavior) else { return }
+        panel.collectionBehavior.insert(behavior)
     }
 
     // UserNotifications doesn't promise to call its delegate on the main thread, so these are
