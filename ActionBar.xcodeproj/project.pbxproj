@@ -31,6 +31,7 @@
 		A10001000000000000000022 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002000000000000000022 /* Components.swift */; };
 		A10001000000000000000023 /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002000000000000000023 /* SettingsStore.swift */; };
 		A10001000000000000000030 /* TestRuns.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002000000000000000030 /* TestRuns.swift */; };
+		A10001000000000000000036 /* FetchFailureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002000000000000000036 /* FetchFailureTests.swift */; };
 		A10001000000000000000031 /* RunStatusTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002000000000000000031 /* RunStatusTests.swift */; };
 		A10001000000000000000032 /* WorkflowRunListTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002000000000000000032 /* WorkflowRunListTests.swift */; };
 		A10001000000000000000033 /* RelativeTimeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002000000000000000033 /* RelativeTimeTests.swift */; };
@@ -70,6 +71,7 @@
 		A10002000000000000000023 /* SettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsStore.swift; sourceTree = "<group>"; };
 		A10002000000000000000020 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A10002000000000000000030 /* TestRuns.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestRuns.swift; sourceTree = "<group>"; };
+		A10002000000000000000036 /* FetchFailureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FetchFailureTests.swift; sourceTree = "<group>"; };
 		A10002000000000000000031 /* RunStatusTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunStatusTests.swift; sourceTree = "<group>"; };
 		A10002000000000000000032 /* WorkflowRunListTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkflowRunListTests.swift; sourceTree = "<group>"; };
 		A10002000000000000000033 /* RelativeTimeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelativeTimeTests.swift; sourceTree = "<group>"; };
@@ -199,6 +201,7 @@
 			isa = PBXGroup;
 			children = (
 				A10002000000000000000030 /* TestRuns.swift */,
+				A10002000000000000000036 /* FetchFailureTests.swift */,
 				A10002000000000000000031 /* RunStatusTests.swift */,
 				A10002000000000000000032 /* WorkflowRunListTests.swift */,
 				A10002000000000000000033 /* RelativeTimeTests.swift */,
@@ -324,6 +327,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A10001000000000000000030 /* TestRuns.swift in Sources */,
+				A10001000000000000000036 /* FetchFailureTests.swift in Sources */,
 				A10001000000000000000031 /* RunStatusTests.swift in Sources */,
 				A10001000000000000000032 /* WorkflowRunListTests.swift in Sources */,
 				A10001000000000000000033 /* RelativeTimeTests.swift in Sources */,

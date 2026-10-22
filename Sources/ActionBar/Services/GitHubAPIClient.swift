@@ -1,34 +1,5 @@
 import Foundation
 
-enum GitHubAPIError: Error, LocalizedError {
-    case invalidToken
-    case rateLimited
-    case networkError(Error)
-    case invalidResponse(Int)
-    case decodingError(Error)
-
-    var errorDescription: String? {
-        switch self {
-        case .invalidToken:
-            return "Invalid or expired token"
-        case .rateLimited:
-            return "GitHub API rate limit reached. Please wait and try again."
-        case .networkError(let error):
-            return "Network error: \(error.localizedDescription)"
-        case .invalidResponse(let code):
-            return "GitHub API returned status \(code)"
-        case .decodingError(let error):
-            return "Failed to parse response: \(error.localizedDescription)"
-        }
-    }
-}
-
-/// Recent runs across repositories, plus the repositories whose runs couldn't be loaded.
-struct RecentRuns {
-    let runs: [WorkflowRun]
-    let failedRepos: [String]
-}
-
 actor GitHubAPIClient {
     /// Upper bound on repositories listed for selection (and polled when nothing is selected).
     static let maxRepositories = 200
@@ -107,15 +78,8 @@ actor GitHubAPIClient {
             return (allRuns, errors)
         }
 
-        // Partial results are fine unless the failure affects every request.
-        if errors.contains(where: { if case GitHubAPIError.invalidToken = $0.error { true } else { false } }) {
-            throw GitHubAPIError.invalidToken
-        }
-        if errors.contains(where: { if case GitHubAPIError.rateLimited = $0.error { true } else { false } }) {
-            throw GitHubAPIError.rateLimited
-        }
-        if let firstError = errors.first, allRuns.isEmpty {
-            throw firstError.error
+        if let error = GitHubAPIError.failingWholeFetch(errors.map(\.error), requestedRepoCount: repoFullNames.count) {
+            throw error
         }
 
         let recentRuns = allRuns

@@ -13,6 +13,54 @@ extension JSONDecoder {
     }
 }
 
+enum GitHubAPIError: Error, LocalizedError {
+    case invalidToken
+    case rateLimited
+    case networkError(Error)
+    case invalidResponse(Int)
+    case decodingError(Error)
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidToken:
+            return "Invalid or expired token"
+        case .rateLimited:
+            return "GitHub API rate limit reached. Please wait and try again."
+        case .networkError(let error):
+            return "Network error: \(error.localizedDescription)"
+        case .invalidResponse(let code):
+            return "GitHub API returned status \(code)"
+        case .decodingError(let error):
+            return "Failed to parse response: \(error.localizedDescription)"
+        }
+    }
+}
+
+/// Recent runs across repositories, plus the repositories whose runs couldn't be loaded.
+struct RecentRuns {
+    let runs: [WorkflowRun]
+    let failedRepos: [String]
+}
+
+extension GitHubAPIError {
+    /// The error that should fail a fetch across several repos, or nil to return partial results.
+    /// An invalid token or a rate limit on any repo fails the fetch, and so does every repo failing.
+    /// A repo that loaded with no runs (or with Actions disabled) still counts as loaded.
+    static func failingWholeFetch(_ errors: [Error], requestedRepoCount: Int) -> Error? {
+        if errors.contains(where: { if case GitHubAPIError.invalidToken = $0 { true } else { false } }) {
+            return GitHubAPIError.invalidToken
+        }
+        if errors.contains(where: { if case GitHubAPIError.rateLimited = $0 { true } else { false } }) {
+            return GitHubAPIError.rateLimited
+        }
+        if let firstError = errors.first, errors.count >= requestedRepoCount {
+            return firstError
+        }
+        return nil
+    }
+}
+
+
 struct GitHubUser: Decodable {
     let login: String
 }
