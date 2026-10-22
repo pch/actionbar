@@ -32,7 +32,7 @@ final class AppState {
     @ObservationIgnored private var pollTask: Task<Void, Never>?
     @ObservationIgnored private var installCheckTask: Task<Void, Never>?
     @ObservationIgnored private var oauthTask: Task<Void, Never>?
-    @ObservationIgnored private var previousRunStatuses: [Int: RunStatus] = [:] // run.id -> status
+    @ObservationIgnored private var runHistory = RunHistory()
     @ObservationIgnored private var hasStarted = false
     @ObservationIgnored private var hasLoadedOnce = false
     @ObservationIgnored private var isFetchingRuns = false
@@ -118,7 +118,7 @@ final class AppState {
         runs = []
         failedRepos = []
         username = nil
-        previousRunStatuses = [:]
+        runHistory = RunHistory()
         hasLoadedOnce = false
         errorMessage = nil
         availableRepos = []
@@ -277,14 +277,13 @@ final class AppState {
             let visibleRuns = workflowFilteredRuns.limited(toRunsPerRepo: query.maxRunsPerRepo)
 
             if hasLoadedOnce {
-                for run in visibleRuns.newlyCompleted(since: previousRunStatuses) {
+                for run in runHistory.newlyCompleted(in: visibleRuns) {
                     NotificationService.sendCompletionNotification(run: run)
                 }
             }
-            previousRunStatuses = [:]
-            for run in visibleRuns {
-                previousRunStatuses[run.id] = RunStatus(from: run)
-            }
+            // Track every fetched run, not just the visible ones, so a run hidden by the filter or
+            // the per-repo limit for one fetch still notifies if it shows up completed later.
+            runHistory.record(newRuns, keepingRunsFrom: recentRuns.failedRepos)
 
             overallStatus = workflowFilteredRuns.overallStatus
             runs = visibleRuns
