@@ -153,6 +153,7 @@ final class AppState {
         if hasInstallations {
             startPolling()
         } else {
+            stopPolling()
             needsInstallation = true
             startInstallCheckTimer()
         }
@@ -181,12 +182,15 @@ final class AppState {
 
     private func startInstallCheckTimer() {
         stopInstallCheckTimer()
+        let sessionID = self.sessionID
         installCheckTask = Task {
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(10))
                 guard !Task.isCancelled else { break }
                 guard let token = KeychainService.loadToken() else { continue }
-                if (try? await apiClient.hasInstallations(token: token)) == true {
+                let hasInstallations = (try? await apiClient.hasInstallations(token: token)) == true
+                guard !Task.isCancelled, sessionID == self.sessionID else { break }
+                if hasInstallations {
                     installationFound()
                     break
                 }
