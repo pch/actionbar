@@ -1,28 +1,34 @@
 import AppKit
 import UserNotifications
 
+@MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
-    private var windowObserver: NSObjectProtocol?
-
     func applicationDidFinishLaunching(_ notification: Notification) {
         UNUserNotificationCenter.current().delegate = self
         NotificationService.requestPermission()
 
         // Make the MenuBarExtra panel immune to "Show Desktop" / Exposé
-        windowObserver = NotificationCenter.default.addObserver(
-            forName: NSWindow.didBecomeKeyNotification,
-            object: nil,
-            queue: .main
-        ) { notification in
-            let behavior: NSWindow.CollectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary]
-            guard let panel = notification.object as? NSPanel, !(panel is NSOpenPanel),
-                  !panel.collectionBehavior.contains(behavior) else { return }
-            panel.collectionBehavior.insert(behavior)
-        }
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(windowDidBecomeKey(_:)),
+            name: NSWindow.didBecomeKeyNotification,
+            object: nil
+        )
     }
 
+    // Windows become key on the main thread, so this is called there.
+    @objc private func windowDidBecomeKey(_ notification: Notification) {
+        let behavior: NSWindow.CollectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary]
+        guard let panel = notification.object as? NSPanel, !(panel is NSOpenPanel),
+              !panel.collectionBehavior.contains(behavior) else { return }
+        panel.collectionBehavior.insert(behavior)
+    }
+
+    // UserNotifications doesn't promise to call its delegate on the main thread, so these are
+    // nonisolated rather than inheriting the app delegate's main actor isolation.
+
     // Show notifications even when the app is in the foreground
-    func userNotificationCenter(
+    nonisolated func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
@@ -31,7 +37,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     }
 
     // Open the workflow run in the browser when the notification is clicked
-    func userNotificationCenter(
+    nonisolated func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void
