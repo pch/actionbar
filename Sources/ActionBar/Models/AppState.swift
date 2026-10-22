@@ -239,8 +239,12 @@ final class AppState {
     }
 
     private func startPolling() {
+        let previousPollTask = pollTask
         stopPolling()
         pollTask = Task {
+            // Let a cancelled poll wind down first. Otherwise its fetch would still be in flight,
+            // this fetch would be skipped, and nothing would refresh until the next interval.
+            await previousPollTask?.value
             await fetchRuns()
             while !Task.isCancelled {
                 // Wait in short steps against a wall-clock deadline, so a refresh happens
@@ -325,11 +329,12 @@ final class AppState {
             runs = visibleRuns
             failedRepos = recentRuns.failedRepos
             hasLoadedOnce = true
+        } catch let error where error is CancellationError || Task.isCancelled {
+            // Task was cancelled (e.g. polling restart) — don't surface to UI. Requests cut off
+            // by the cancellation can surface as network errors, hence the `Task.isCancelled` check.
         } catch GitHubAPIError.invalidToken {
             guard sessionID == self.sessionID else { return }
             signOut()
-        } catch is CancellationError {
-            // Task was cancelled (e.g. polling restart) — don't surface to UI.
         } catch {
             guard sessionID == self.sessionID else { return }
             errorMessage = error.localizedDescription

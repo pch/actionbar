@@ -78,6 +78,8 @@ actor GitHubAPIClient {
             return (allRuns, errors)
         }
 
+        // A cancelled fetch reports its unfinished repos as network errors; don't pass those off as failures.
+        try Task.checkCancellation()
         if let error = GitHubAPIError.failingWholeFetch(errors.map(\.error), requestedRepoCount: repoFullNames.count) {
             throw error
         }
