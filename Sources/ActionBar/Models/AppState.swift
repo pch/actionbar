@@ -36,6 +36,9 @@ final class AppState {
     @ObservationIgnored private var hasStarted = false
     @ObservationIgnored private var hasLoadedOnce = false
     @ObservationIgnored private var isFetchingRuns = false
+    @ObservationIgnored private var refetchRequested = false
+    /// Changes on sign-out, so a fetch that was in flight doesn't apply its results afterwards.
+    @ObservationIgnored private var sessionID = 0
 
     init(settings: SettingsStore? = nil) {
         self.settings = settings ?? SettingsStore()
@@ -47,8 +50,11 @@ final class AppState {
         hasStarted = true
         guard let token = KeychainService.loadToken() else { return }
         isAuthenticated = true
+        let sessionID = self.sessionID
         Task {
-            if let user = try? await apiClient.validateToken(token) {
+            let user = try? await apiClient.validateToken(token)
+            guard sessionID == self.sessionID else { return }
+            if let user {
                 username = user.login
             }
             await startMonitoring(token: token)
@@ -112,6 +118,7 @@ final class AppState {
             await apiClient.clearConditionalCache()
         }
         KeychainService.deleteToken()
+        sessionID += 1
         isAuthenticated = false
         needsInstallation = false
         overallStatus = .unknown
@@ -133,33 +140,42 @@ final class AppState {
 
     /// Starts polling if the GitHub App is installed, otherwise waits for it to be installed.
     private func startMonitoring(token: String) async {
+        let sessionID = self.sessionID
+        let hasInstallations: Bool
         do {
-            if try await apiClient.hasInstallations(token: token) {
-                startPolling()
-            } else {
-                needsInstallation = true
-                startInstallCheckTimer()
-            }
+            hasInstallations = try await apiClient.hasInstallations(token: token)
         } catch {
             // Don't assume there are no installations; fetchRuns will surface real errors.
+            hasInstallations = true
+        }
+        guard sessionID == self.sessionID else { return }
+
+        if hasInstallations {
             startPolling()
+        } else {
+            needsInstallation = true
+            startInstallCheckTimer()
         }
     }
 
     func checkInstallationAndStart() {
         guard let token = KeychainService.loadToken() else { return }
         isCheckingInstallation = true
+        let sessionID = self.sessionID
         Task {
+            defer { isCheckingInstallation = false }
             do {
-                if try await apiClient.hasInstallations(token: token) {
+                let hasInstallations = try await apiClient.hasInstallations(token: token)
+                guard sessionID == self.sessionID else { return }
+                if hasInstallations {
                     installationFound()
                 } else {
                     errorMessage = "No installation found yet. Please install the app on GitHub first. If you did, wait a bit."
                 }
             } catch {
+                guard sessionID == self.sessionID else { return }
                 errorMessage = error.localizedDescription
             }
-            isCheckingInstallation = false
         }
     }
 
@@ -245,10 +261,21 @@ final class AppState {
     }
 
     private func fetchRuns(manageLoading: Bool = true) async {
-        guard !isFetchingRuns else { return }
+        guard !isFetchingRuns else {
+            // Fetch again once the current fetch finishes, so this refresh isn't lost.
+            refetchRequested = true
+            return
+        }
         isFetchingRuns = true
         defer { isFetchingRuns = false }
 
+        repeat {
+            refetchRequested = false
+            await fetchRunsOnce(manageLoading: manageLoading)
+        } while refetchRequested && !Task.isCancelled
+    }
+
+    private func fetchRunsOnce(manageLoading: Bool) async {
         guard let token = KeychainService.loadToken() else {
             isAuthenticated = false
             return
@@ -258,6 +285,8 @@ final class AppState {
             isLoading = true
         }
         errorMessage = nil
+        defer { if manageLoading { isLoading = false } }
+        let sessionID = self.sessionID
 
         do {
             let query = runQueryAtSettingsOpen ?? settings.runQuery
@@ -266,6 +295,13 @@ final class AppState {
             let actor = query.includeRunsFromOtherUsers ? nil : username
             let recentRuns = try await apiClient.fetchRecentRuns(token: token, actor: actor, repos: repos)
             let newRuns = recentRuns.runs
+
+            guard sessionID == self.sessionID else { return }
+            // Settings closed with changes while this was in flight; these results are for the old ones.
+            guard query == runQueryAtSettingsOpen ?? settings.runQuery else {
+                refetchRequested = true
+                return
+            }
 
             // With nothing selected yet, adopt the repos that have recent runs as the selection.
             // Not while Settings is open, where it would overwrite the user's edits.
@@ -290,14 +326,14 @@ final class AppState {
             failedRepos = recentRuns.failedRepos
             hasLoadedOnce = true
         } catch GitHubAPIError.invalidToken {
+            guard sessionID == self.sessionID else { return }
             signOut()
         } catch is CancellationError {
             // Task was cancelled (e.g. polling restart) — don't surface to UI.
         } catch {
+            guard sessionID == self.sessionID else { return }
             errorMessage = error.localizedDescription
         }
-
-        if manageLoading { isLoading = false }
     }
 
     // MARK: - Repositories
@@ -307,16 +343,19 @@ final class AppState {
         if !force && !availableRepos.isEmpty { return }
         isLoadingRepos = true
         repoListError = nil
+        let sessionID = self.sessionID
         Task {
+            defer { isLoadingRepos = false }
             do {
                 let repos = try await apiClient.fetchAllRepos(token: token)
+                guard sessionID == self.sessionID else { return }
                 availableRepos = repos
                 repoListIsCapped = repos.count >= GitHubAPIClient.maxRepositories
             } catch {
                 // Keep whatever list we had before.
+                guard sessionID == self.sessionID else { return }
                 repoListError = error.localizedDescription
             }
-            isLoadingRepos = false
         }
     }
 }
