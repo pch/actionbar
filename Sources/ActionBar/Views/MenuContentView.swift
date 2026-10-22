@@ -60,8 +60,7 @@ struct MenuContentView: View {
             }
             .help("Refresh now")
             Button("Settings", systemImage: "gearshape") {
-                appState.showingSettings = true
-                appState.fetchAvailableRepos()
+                appState.openSettings()
             }
             .help("Settings")
         }

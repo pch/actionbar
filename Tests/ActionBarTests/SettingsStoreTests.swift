@@ -64,6 +64,23 @@ final class SettingsStoreTests {
         #expect(SettingsStore(defaults: defaults).selectedRepoNames.isEmpty)
     }
 
+    @Test func runQueryReflectsCurrentSettings() {
+        let store = SettingsStore(defaults: defaults)
+        store.selectedRepoNames = ["owner/a"]
+        store.workflowFilterMode = .include
+        store.workflowFilterText = "ci"
+        store.maxRunsPerRepo = 2
+        store.includeRunsFromOtherUsers = true
+
+        #expect(store.runQuery == SettingsStore.RunQuery(
+            repoNames: ["owner/a"],
+            workflowFilterMode: .include,
+            workflowFilterText: "ci",
+            maxRunsPerRepo: 2,
+            includeRunsFromOtherUsers: true
+        ))
+    }
+
     @Test func invalidSavedValuesFallBackToDefaults() {
         defaults.set(0, forKey: "pollingInterval")
         defaults.set(-1, forKey: "maxRunsPerRepo")

@@ -17,7 +17,10 @@ final class AppState {
     var isLoadingRepos = false
     var repoListIsCapped = false
     var repoListError: String?
-    var showingSettings = false
+    private(set) var showingSettings = false
+    /// The run query from when Settings was opened. Polls keep using it until Settings closes,
+    /// so half-finished edits (like an empty selection) don't reach the menu or notifications.
+    private(set) var runQueryAtSettingsOpen: SettingsStore.RunQuery?
     var needsInstallation = false
     var isCheckingInstallation = false
     private(set) var overallStatus: RunStatus = .unknown
@@ -122,6 +125,7 @@ final class AppState {
         repoListIsCapped = false
         repoListError = nil
         showingSettings = false
+        runQueryAtSettingsOpen = nil
         settings.resetAccountSettings()
     }
 
@@ -186,6 +190,20 @@ final class AppState {
         startPolling()
     }
 
+    // MARK: - Settings
+
+    func openSettings() {
+        runQueryAtSettingsOpen = settings.runQuery
+        showingSettings = true
+        fetchAvailableRepos()
+    }
+
+    func closeSettings() {
+        showingSettings = false
+        runQueryAtSettingsOpen = nil
+        refreshNow()
+    }
+
     // MARK: - Polling
 
     func refreshNow() {
@@ -242,19 +260,21 @@ final class AppState {
         errorMessage = nil
 
         do {
-            let usingFallback = settings.selectedRepoNames.isEmpty
-            let repos = usingFallback ? nil : Array(settings.selectedRepoNames)
-            let actor = settings.includeRunsFromOtherUsers ? nil : username
+            let query = runQueryAtSettingsOpen ?? settings.runQuery
+            let usingFallback = query.repoNames.isEmpty
+            let repos = usingFallback ? nil : Array(query.repoNames)
+            let actor = query.includeRunsFromOtherUsers ? nil : username
             let recentRuns = try await apiClient.fetchRecentRuns(token: token, actor: actor, repos: repos)
             let newRuns = recentRuns.runs
 
             // With nothing selected yet, adopt the repos that have recent runs as the selection.
-            if usingFallback && !newRuns.isEmpty {
+            // Not while Settings is open, where it would overwrite the user's edits.
+            if usingFallback && runQueryAtSettingsOpen == nil && !newRuns.isEmpty {
                 settings.selectedRepoNames = Set(newRuns.map(\.repositoryFullName))
             }
 
-            let workflowFilteredRuns = newRuns.filtered(by: settings.workflowFilterMode, patterns: settings.workflowFilterText)
-            let visibleRuns = workflowFilteredRuns.limited(toRunsPerRepo: settings.maxRunsPerRepo)
+            let workflowFilteredRuns = newRuns.filtered(by: query.workflowFilterMode, patterns: query.workflowFilterText)
+            let visibleRuns = workflowFilteredRuns.limited(toRunsPerRepo: query.maxRunsPerRepo)
 
             if hasLoadedOnce {
                 for run in visibleRuns.newlyCompleted(since: previousRunStatuses) {

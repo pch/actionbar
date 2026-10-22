@@ -8,6 +8,15 @@ final class SettingsStore {
     static let defaultPollingInterval: TimeInterval = 30
     static let defaultMaxRunsPerRepo = 5
 
+    /// The settings that decide which runs are fetched and shown.
+    struct RunQuery: Equatable {
+        var repoNames: Set<String>
+        var workflowFilterMode: WorkflowFilterMode
+        var workflowFilterText: String
+        var maxRunsPerRepo: Int
+        var includeRunsFromOtherUsers: Bool
+    }
+
     var selectedRepoNames: Set<String> = [] {
         didSet { save(Array(selectedRepoNames), forKey: Key.selectedRepos) }
     }
@@ -25,6 +34,16 @@ final class SettingsStore {
     }
     var includeRunsFromOtherUsers = false {
         didSet { save(includeRunsFromOtherUsers, forKey: Key.includeRunsFromOtherUsers) }
+    }
+
+    var runQuery: RunQuery {
+        RunQuery(
+            repoNames: selectedRepoNames,
+            workflowFilterMode: workflowFilterMode,
+            workflowFilterText: workflowFilterText,
+            maxRunsPerRepo: maxRunsPerRepo,
+            includeRunsFromOtherUsers: includeRunsFromOtherUsers
+        )
     }
 
     @ObservationIgnored private let defaults: UserDefaults

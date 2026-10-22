@@ -6,7 +6,6 @@ struct SettingsView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.openURL) private var openURL
     @State private var searchText = ""
-    @State private var repoSelectionSnapshot: Set<String> = []
     @State private var showSelectAllWarning = false
 
     /// Selecting more repos than this at once asks for confirmation, since each one costs an API call per refresh.
@@ -18,6 +17,11 @@ struct SettingsView: View {
         ("1 min", 60),
         ("5 min", 300),
     ]
+
+    /// What the Reset button restores.
+    private var repoSelectionAtOpen: Set<String> {
+        appState.runQueryAtSettingsOpen?.repoNames ?? settings.selectedRepoNames
+    }
 
     private var filteredRepos: [Repository] {
         if searchText.isEmpty {
@@ -46,9 +50,6 @@ struct SettingsView: View {
             Divider()
             repositoryList
         }
-        .onAppear {
-            repoSelectionSnapshot = settings.selectedRepoNames
-        }
     }
 
     private var header: some View {
@@ -57,8 +58,7 @@ struct SettingsView: View {
                 .font(.headline)
             Spacer()
             Button("Done") {
-                appState.showingSettings = false
-                appState.refreshNow()
+                appState.closeSettings()
             }
             .buttonStyle(.plain)
             .foregroundStyle(Color.accentColor)
@@ -216,10 +216,10 @@ struct SettingsView: View {
                 .textButtonStyle(.accentColor)
                 Button("Reset") {
                     showSelectAllWarning = false
-                    settings.selectedRepoNames = repoSelectionSnapshot
+                    settings.selectedRepoNames = repoSelectionAtOpen
                 }
                 .textButtonStyle(.accentColor)
-                .disabled(settings.selectedRepoNames == repoSelectionSnapshot)
+                .disabled(settings.selectedRepoNames == repoSelectionAtOpen)
             }
 
             if appState.repoListIsCapped {
