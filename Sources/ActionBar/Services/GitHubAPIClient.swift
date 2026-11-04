@@ -1,8 +1,8 @@
 import Foundation
 
 actor GitHubAPIClient {
-    /// Upper bound on repositories listed for selection (and polled when nothing is selected).
-    static let maxRepositories = 200
+    /// Upper bound on repositories polled when none are explicitly selected.
+    private static let maxFallbackRepositories = 200
 
     private static let baseURL = "https://api.github.com"
     private static let pageSize = 100
@@ -50,7 +50,7 @@ actor GitHubAPIClient {
         if let repoNames {
             repoFullNames = repoNames
         } else {
-            repoFullNames = try await fetchAllRepos(token: token).map(\.fullName)
+            repoFullNames = try await fetchAllRepos(token: token, limit: Self.maxFallbackRepositories).map(\.fullName)
         }
 
         let (allRuns, errors) = await withTaskGroup(of: (String, Result<[WorkflowRun], Error>).self) { group in
@@ -153,21 +153,21 @@ actor GitHubAPIClient {
         try await !fetchInstallations(token: token).isEmpty
     }
 
-    func fetchAllRepos(token: String) async throws -> [Repository] {
+    func fetchAllRepos(token: String, limit: Int = .max) async throws -> [Repository] {
         let installations = try await fetchInstallations(token: token)
         var allRepos: [Repository] = []
 
-        for installation in installations where allRepos.count < Self.maxRepositories {
+        for installation in installations where allRepos.count < limit {
             allRepos += try await fetchAllPages(
                 InstallationRepositoriesResponse.self,
                 path: "/user/installations/\(installation.id)/repositories",
                 token: token,
-                limit: Self.maxRepositories - allRepos.count
+                limit: limit - allRepos.count
             )
         }
 
         let sorted = allRepos.sorted { $0.fullName.localizedCaseInsensitiveCompare($1.fullName) == .orderedAscending }
-        return Array(sorted.prefix(Self.maxRepositories))
+        return Array(sorted.prefix(limit))
     }
 
     private func fetchInstallations(token: String) async throws -> [AppInstallation] {

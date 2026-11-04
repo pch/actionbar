@@ -222,13 +222,6 @@ struct SettingsView: View {
                 .disabled(settings.selectedRepoNames == repoSelectionAtOpen)
             }
 
-            if appState.repoListIsCapped {
-                Text("Only the first \(GitHubAPIClient.maxRepositories) repositories are shown.")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-
             if let error = appState.repoListError {
                 Text("Couldn't load repositories: \(error)")
                     .font(.caption2)
