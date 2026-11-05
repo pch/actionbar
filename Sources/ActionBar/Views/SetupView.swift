@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct SetupView: View {
-    @EnvironmentObject private var appState: AppState
+    @Environment(AppState.self) private var appState
     @Environment(\.openURL) private var openURL
 
     var body: some View {
@@ -163,7 +163,7 @@ struct SetupView: View {
 
 #Preview("Login") {
     SetupView()
-        .environmentObject(AppState())
+        .environment(AppState())
 }
 
 #Preview("Device Code") {
@@ -175,12 +175,12 @@ struct SetupView: View {
         interval: 5
     )
     return SetupView()
-        .environmentObject(state)
+        .environment(state)
 }
 
 #Preview("Installation Required") {
     let state = AppState()
     state.needsInstallation = true
     return SetupView()
-        .environmentObject(state)
+        .environment(state)
 }

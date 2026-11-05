@@ -3,16 +3,17 @@ import SwiftUI
 @main
 struct ActionBarApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
-    @StateObject private var appState = AppState()
+    @State private var appState = AppState()
     @StateObject private var updater = UpdaterService()
 
     var body: some Scene {
         MenuBarExtra {
             MenuContentView()
-                .environmentObject(appState)
+                .environment(appState)
                 .environmentObject(updater)
         } label: {
             MenuBarLabel(appState: appState)
+                // onAppear can fire more than once; start() only runs the first time.
                 .onAppear { appState.start() }
         }
         .menuBarExtraStyle(.window)
@@ -20,7 +21,7 @@ struct ActionBarApp: App {
 }
 
 private struct MenuBarLabel: View {
-    @ObservedObject var appState: AppState
+    let appState: AppState
 
     var body: some View {
         Image(nsImage: MenuBarIcon.image(statusDotColor: statusDotColor))
