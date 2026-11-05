@@ -167,3 +167,33 @@ extension Array where Element == WorkflowRun {
         return RunStatus(from: lastFinishedRun)
     }
 }
+
+// MARK: - Run History
+
+/// The last status seen for each run, to tell which runs finished since the previous fetch.
+struct RunHistory {
+    private struct Entry {
+        let repo: String
+        let status: RunStatus
+    }
+
+    private var entries: [Int: Entry] = [:] // run.id -> last seen
+
+    /// Runs that have completed since they were last seen queued or in progress.
+    func newlyCompleted(in runs: [WorkflowRun]) -> [WorkflowRun] {
+        runs.filter { run in
+            run.status == "completed" && entries[run.id]?.status.isActive == true
+        }
+    }
+
+    /// Replaces the history with `runs`. Repos in `failedRepos` weren't loaded this time,
+    /// so their runs keep their last status until the repo loads again.
+    mutating func record(_ runs: [WorkflowRun], keepingRunsFrom failedRepos: [String]) {
+        let failedRepos = Set(failedRepos)
+        var newEntries = entries.filter { failedRepos.contains($0.value.repo) }
+        for run in runs {
+            newEntries[run.id] = Entry(repo: run.repositoryFullName, status: RunStatus(from: run))
+        }
+        entries = newEntries
+    }
+}
