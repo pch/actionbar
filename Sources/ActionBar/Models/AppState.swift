@@ -15,7 +15,6 @@ final class AppState {
     var isLoggingIn = false
     var availableRepos: [Repository] = []
     var isLoadingRepos = false
-    var repoListIsCapped = false
     var repoListError: String?
     private(set) var showingSettings = false
     /// The run query from when Settings was opened. Polls keep using it until Settings closes,
@@ -133,7 +132,6 @@ final class AppState {
         hasLoadedOnce = false
         errorMessage = nil
         availableRepos = []
-        repoListIsCapped = false
         repoListError = nil
         showingSettings = false
         runQueryAtSettingsOpen = nil
@@ -364,7 +362,6 @@ final class AppState {
                 let repos = try await apiClient.fetchAllRepos(token: token)
                 guard !Task.isCancelled, sessionID == self.sessionID else { return }
                 availableRepos = repos
-                repoListIsCapped = repos.count >= GitHubAPIClient.maxRepositories
             } catch {
                 guard !Task.isCancelled, sessionID == self.sessionID else { return }
                 // Keep whatever list we had before.
