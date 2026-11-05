@@ -243,7 +243,7 @@ struct SettingsView: View {
                 .font(.system(size: 12))
                 .foregroundStyle(.orange)
             VStack(alignment: .leading, spacing: 6) {
-                Text("Each selected repo requires a separate API call on every refresh. Selecting many repos will slow things down.")
+                Text("This selects \(filteredRepos.count) repos. Each selected repo requires a separate API call on every refresh, so selecting many repos will slow things down and can hit GitHub's rate limit.")
                     .font(.caption2)
                     .fixedSize(horizontal: false, vertical: true)
                 HStack(spacing: 12) {
