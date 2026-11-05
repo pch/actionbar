@@ -5,6 +5,7 @@ struct MenuContentView: View {
     @EnvironmentObject private var updater: UpdaterService
     @State private var now = Date()
     @State private var showAbout = false
+    @State private var runsHeight: CGFloat = 0
 
     var body: some View {
         if appState.isAuthenticated && !appState.needsInstallation {
@@ -149,8 +150,14 @@ struct MenuContentView: View {
                     }
                 }
             }
+            // The menu window takes its content's ideal size, and a ScrollView's
+            // ideal height doesn't follow its content, so size the list to it.
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: {
+                runsHeight = $0
+            }
         }
-        .frame(maxHeight: 400)
+        .scrollBounceBehavior(.basedOnSize)
+        .frame(height: min(runsHeight, 400))
     }
 
     private func errorView(_ message: String) -> some View {
