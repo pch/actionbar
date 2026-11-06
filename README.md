@@ -3,7 +3,7 @@
 Monitor your GitHub Actions workflow runs directly from the macOS menu bar.
 
 <p align="center">
-  <img src="docs/screenshot.png" alt="ActionBar showing GitHub Actions workflow runs in the macOS menu bar" width="480">
+  <img src="docs/screenshot-2.2.png" alt="ActionBar showing GitHub Actions workflow runs in the macOS menu bar" width="480">
 </p>
 
 <p align="center">
