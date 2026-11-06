@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.2
+
+- Settings now lists all your repositories instead of only the first 200. Thanks to @tiagolpadua.
+- Selecting all repositories now tells you how many you're selecting and warns that many repositories can hit GitHub's rate limit.
+- The menu now opens at its full height right away. Before, it opened short and only grew after you'd opened Settings.
+
 ## 2.1
 
 - Settings are saved as soon as you change them, so closing the menu without pressing Done no longer loses your changes.
